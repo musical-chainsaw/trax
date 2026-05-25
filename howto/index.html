@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Antonio:wght@300;400;700&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;1,300&display=swap"
+    rel="stylesheet">
+  <title>TRAX — How To</title>
+  <style>
+    :root {
+      --bg: #07090d;
+      --sb: #0c0f15;
+      --card: #12161e;
+      --card2: #161b26;
+      --bd: rgba(255, 255, 255, .055);
+      --bdh: rgba(255, 255, 255, .13);
+      --text: #dde3f0;
+      --mut: #3d4a5c;
+      --mut2: #5a6a80;
+      --warn: #ffb74d;
+      --sw: 308px;
+    }
+
+    html,
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+    }
+
+    #app {
+      display: flex;
+      padding: 44px;
+      width: clamp(0, 72vw, 800px) !important;
+      margin: 44px;
+      border-radius: 28px;
+      background-color: var(--card2);
+    }
+
+    h1 {
+      font-family: 'Antonio', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: #fff;
+    }
+
+    h2 {
+      font-size: 1rem;
+      letter-spacing: 2.5px;
+      color: var(--warn);
+    }
+
+    p {
+      margin-top: 1rem;
+      line-height: 2rem;
+      font-size: 1.2rem;
+    }
+
+    h3 {
+      margin-top: 5rem;
+      font-size: 2rem;
+    }
+
+    ul {
+      margin-left: 2rem;
+      line-height: 3rem;
+    }
+
+    li {
+      margin-block-start: 24px;
+      font-size: 1.4rem;
+    }
+
+    span {
+      background-color: var(--mut);
+      padding: 4px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div>
+      <h1>TRAX</h1>
+      <span>How To</span>
+      <p>TRAX lets you visualize your past activities on a map. You can customize colors and decide which sports to
+        show. This tutorial focuses on data import from STRAVA.
+        <br>However, GPX data can be retrieved from almost any tracking device or app.</p>
+      
+      <p><span>TAKES ABOUT 10 MINUTES TO SET UP. WAIT TIME FROM SOME MINUTES UP TO SEVERAL HOURS.</span></p>
+      <h3>How To Start</h3>
+      <h2>WARNING: TRAX can be very demanding on your hardware.</h2>
+      <p>
+      <ul>
+        <li>On your PC, go to <span>strava.com</span> and log in.</li>
+        <li>Navigate to <span>Settings</span> (below the profile picture) > <span>My Account</span>, scroll down and
+          click <span>Download or Delete Your Account</span>.
+          <br>Alternatively, go to <span>strava.com/delete_your_account</span>.
+        </li>
+        <li>After <span>Requesting Your Archive</span>, unzip the file.</li>
+        <li>Go to <span>musical-chainsaw.github.io/trax</span> and either click on the field <span>AUTO UPLOAD</span> or drag-and-drop your selected files to that field.</li>
+        <li>It will take some moments to analyze.</li>
+        <li>Some activities may not be recognized. They will appear on the map once you allocate them to a sport type
+          (upper-left tool bar).</li>
+        <li>In the archive, if you have noticed files other that <span>.gpx</span>, go to the <span>archive folder</span> and open the file
+          <span>activities.csv</span>.<br>There, search for the non-gpx filename.
+          <br>With the information related to that
+          workout, you can go to <span>strava.com/athlete/training</span> and look for that entry by searching.<br>Click on
+          the title > <span>...</span> > <span>Export GPX</span>.</li>
+        <li>If there is still some routes missing, double-check by manuallly re-downloading that specific route directly, as
+          described in the step before.</li>
+      </ul>
+      </p>
+      <h3>Additional Features</h3>
+      <p>
+        <ul>
+          <li><h2><span>IMPORT ROUTES</span></h2> Click on <span>AUTO UPLOAD</span> and select all your files. Don't use the same file twice as this will result in false heat data.</li>
+          <li><h2><span>ELEVATION INSIGHT</span></h2> Click on <span>ELVATION</span> at the bottom to see which parts of the routes had high elevation.</li>
+          <li><h2><span>SAVE AS IMAGE</span></h2>To capture a high-resolution PNG, click on <span>CAPTURE</span> at the bottom. Before, zoom in on the map to your desired crop. You can adjust the scale and type of glow.</li>
+          <li><h2><span>FOCUS</span></h2>Click on <span>FOCUS</span> to enter fullscreen and hide the menubar. Navigate back in your browser's controls to exit.</li>
+          <li><h2><span>EXPORT</span></h2>Export your currently visible routes as a .trax file. It can only be imported in TRAX. Make sure to toggle on all sport types you want to include. <span>Only open .trax files with our website as they could crash your device due to their size.</span></li>
+          <li><h2><span>COMPARE</span></h2>Lets you import your or a friend's routes. To compare, you have to first export and import your own routes as a .trax file, then also import the one you want to compare with.</li>
+        </ul>
+      </p>
+      <h3>Integration</h3>
+      <h2>NOTE: not functional yet.</h2>
+      <p>You can install this website as an app on your homescreen.</p>
+      <ul>
+        <li>ANDROID: In Chrome, go to the <span>three dots</span> at the top and click on <span>Add or install on
+            homescreen</span>.
+          <br>Select <span>Install as an app/PWA</span>. The installation process begins, it may take some minutes.
+        </li>
+        <li>APPLE: In Safari, go to <span>Share</span>, <span>Add to homescreen</span> and check <span>Install as an
+            app</span>.</li>
+      </ul>
+      <p>You can also save your heatmap as an image.</p>
+      <ul>
+        <li>Click on <span>Save</span> in the bottom-left corner. You may have to confirm the download or save it
+          manually.</li>
+      </ul>
+      <h3>More</h3>
+      <p>All GPX data are being stored locally.
+        <br>After closing and reopening the site, your data will not be lost.
+        <br>Data will be deleted after uninstalling your browser, deleting your browsing history, deleting site data, or
+        being in private mode.
+        <br>No data is leaving your device.
+        <br><br>This app was coded by <span>Claude</span>, <span>ChatGPT</span>, and <span>musical-chainsaw</span>.
+      </p>
+    </div>
+  </div>
+</body>
+
+</html>

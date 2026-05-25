@@ -1,0 +1,2522 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>TRAX — GPX Heatmap</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Antonio:wght@300;400;700&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;1,300&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #07090d;
+      --sb: #0c0f15;
+      --card: #12161e;
+      --card2: #161b26;
+      --bd: rgba(255, 255, 255, .055);
+      --bdh: rgba(255, 255, 255, .13);
+      --text: #dde3f0;
+      --mut: #3d4a5c;
+      --mut2: #5a6a80;
+      --warn: #ffb74d;
+      --ok: #66bb6a;
+      --err: #ef5350;
+      --sw: 16vw;
+    }
+
+    html,
+    body {
+      height: 100%;
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden
+    }
+
+    #app {
+      display: flex;
+      height: 100vh;
+      position: relative
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: var(--sw);
+      min-width: 330px;
+      background: var(--sb);
+      border-right: 1px solid var(--bd);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 200;
+      transition: transform .3s ease;
+    }
+
+    #app.focus #sidebar {
+      transform: translateX(calc(-1 * var(--sw)));
+      position: absolute;
+      height: 100%
+    }
+
+    #app.focus #map-wrap {
+      flex: 1
+    }
+
+    #sb-head {
+      padding: 14px 15px 11px;
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0
+    }
+
+    .logo {
+      font-family: 'Antonio', sans-serif;
+      font-size: 25px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: #fff;
+      line-height: 1
+    }
+
+    .logo-sub {
+      font-size: 7.5px;
+      letter-spacing: 2.5px;
+      color: var(--mut);
+      margin-top: 3px
+    }
+
+    .head-row {
+      display: flex;
+      gap: 5px;
+      margin-top: 10px
+    }
+
+    .hbtn {
+      flex: 1;
+      padding: 6px 7px;
+      background: var(--card);
+      border: 1px solid var(--bdh);
+      border-radius: 6px;
+      color: var(--mut2);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all .18s;
+      white-space: nowrap;
+    }
+
+    .hbtn:hover {
+      border-color: rgba(255, 255, 255, .26);
+      color: #fff;
+      background: var(--card2)
+    }
+
+    .hbtn svg {
+      flex-shrink: 0
+    }
+
+    /* ── COMPARE PANEL ── */
+    #cmp-panel {
+      background: rgba(255, 183, 77, .07);
+      border-bottom: 1px solid rgba(255, 183, 77, .2);
+      padding: 9px 13px;
+      flex-shrink: 0;
+      display: none;
+    }
+
+    #cmp-panel.show {
+      display: block
+    }
+
+    .cmp-hd {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 7px
+    }
+
+    .cmp-badge {
+      font-size: 7.5px;
+      letter-spacing: 2px;
+      color: var(--warn);
+      background: rgba(255, 183, 77, .14);
+      border: 1px solid rgba(255, 183, 77, .28);
+      border-radius: 3px;
+      padding: 2px 6px
+    }
+
+    .cmp-info {
+      font-size: 7.5px;
+      color: var(--mut2);
+      flex: 1
+    }
+
+    .cmp-exit {
+      margin-left: auto;
+      background: none;
+      border: 1px solid rgba(255, 183, 77, .35);
+      color: var(--warn);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 7.5px;
+      letter-spacing: 1.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all .15s
+    }
+
+    .cmp-exit:hover {
+      background: rgba(255, 183, 77, .14)
+    }
+
+    .cmp-files {
+      display: flex;
+      flex-direction: column;
+      gap: 3px
+    }
+
+    .cmp-file {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 7px;
+      background: rgba(255, 255, 255, .025);
+      border-radius: 5px
+    }
+
+    .cmp-sw {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .cmp-fn {
+      flex: 1;
+      font-size: 8.5px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .cmp-rc {
+      font-size: 7.5px;
+      color: var(--mut2);
+      flex-shrink: 0
+    }
+
+    .cmp-rm {
+      background: none;
+      border: none;
+      color: var(--mut);
+      cursor: pointer;
+      font-size: 10px;
+      padding: 1px 3px;
+      border-radius: 3px;
+      transition: color .15s, background .15s;
+      flex-shrink: 0
+    }
+
+    .cmp-rm:hover {
+      color: #ff5555;
+      background: rgba(255, 80, 80, .1)
+    }
+
+    .cmp-add {
+      margin-top: 5px;
+      width: 100%;
+      padding: 5px;
+      background: none;
+      border: 1px dashed rgba(255, 183, 77, .28);
+      border-radius: 5px;
+      color: rgba(255, 183, 77, .7);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 7.5px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all .15s;
+      position: relative
+    }
+
+    .cmp-add input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%
+    }
+
+    .cmp-add:hover {
+      background: rgba(255, 183, 77, .06);
+      border-color: rgba(255, 183, 77, .48)
+    }
+
+    /* ── LOADING ── */
+    #loading-bar {
+      height: 2px;
+      background: var(--card);
+      flex-shrink: 0;
+      overflow: hidden;
+      display: none;
+    }
+
+    #loading-bar.show {
+      display: block
+    }
+
+    #loading-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #44aaff, #7c4dff);
+      width: 0%;
+      transition: width .25s ease;
+      border-radius: 1px
+    }
+
+    #loading-msg {
+      font-size: 8px;
+      color: var(--mut2);
+      padding: 4px 13px;
+      letter-spacing: .5px;
+      display: none;
+      flex-shrink: 0
+    }
+
+    #loading-msg.show {
+      display: block
+    }
+
+    /* ── GLOBAL DZ ── */
+    #global-dz {
+      margin: 7px 12px 5px;
+      padding: 7px 11px;
+      border: 1px dashed var(--bdh);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      position: relative;
+      transition: all .2s;
+      flex-shrink: 0;
+    }
+
+    #global-dz:hover,
+    #global-dz.over {
+      border-color: rgba(255, 255, 255, .28);
+      background: rgba(255, 255, 255, .018)
+    }
+
+    #global-dz input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%
+    }
+
+    .gdz-icon {
+      font-size: 15px;
+      flex-shrink: 0
+    }
+
+    .gdz-txt .gdz-main {
+      font-size: 8.5px;
+      color: var(--text);
+      letter-spacing: .5px
+    }
+
+    .gdz-txt .gdz-sub {
+      font-size: 7px;
+      color: var(--mut2)
+    }
+
+    /* ── PENDING ── */
+    #pending-box {
+      margin: 0 12px 4px;
+      flex-shrink: 0
+    }
+
+    .pb-hd {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 7.5px;
+      letter-spacing: 2px;
+      color: var(--warn);
+      padding: 3px 2px 4px
+    }
+
+    .pb-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px
+    }
+
+    .pb-row {
+      background: rgba(255, 183, 77, .05);
+      border: 1px solid rgba(255, 183, 77, .15);
+      border-radius: 6px;
+      padding: 5px 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px
+    }
+
+    .pb-name {
+      flex: 1;
+      font-size: 8.5px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .pb-pts {
+      font-size: 7.5px;
+      color: var(--mut2);
+      flex-shrink: 0
+    }
+
+    /* ── SCROLL ── */
+    #sb-scroll {
+      flex: 1;
+      overflow-y: scroll;
+      padding: 5px 12px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px
+    }
+
+    #sb-scroll::-webkit-scrollbar {
+      width: 3px
+    }
+
+    #sb-scroll::-webkit-scrollbar-thumb {
+      background: var(--mut);
+      border-radius: 2px
+    }
+
+    #empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 28px 16px;
+      text-align: center
+    }
+
+    .empty-ring {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1.5px dashed var(--mut);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      color: var(--mut)
+    }
+
+    #empty p {
+      font-size: 8.5px;
+      line-height: 2;
+      color: var(--mut2)
+    }
+
+    /* ── SPORT CARD ── */
+    .sport-card {
+      overflow-y: scroll;
+      background: var(--card);
+      border: 1px solid var(--bd);
+      border-radius: 9px;
+      transition: border-color .2s, opacity .25s;
+      animation: fadeUp .25s ease both
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(5px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .sport-card:hover {
+      border-color: var(--bdh)
+    }
+
+    .sc-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 11px
+    }
+
+    .sc-tog {
+      width: 29px;
+      height: 16px;
+      background: var(--mut);
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: background .22s
+    }
+
+    .sc-tog.on {
+      background: var(--c, #4af)
+    }
+
+    .sc-tog::after {
+      content: '';
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: transform .22s;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .4)
+    }
+
+    .sc-tog.on::after {
+      transform: translateX(13px)
+    }
+
+    .sc-dot-wrap {
+      position: relative;
+      flex-shrink: 0;
+      width: 13px;
+      height: 13px;
+      cursor: pointer
+    }
+
+    .sc-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      display: block;
+      transition: opacity .15s
+    }
+
+    .sc-dot-wrap input[type=color] {
+      position: absolute;
+      inset: -4px;
+      opacity: 0;
+      cursor: pointer;
+      width: calc(100% + 8px);
+      height: calc(100% + 8px);
+      border: none;
+      padding: 0
+    }
+
+    .sc-dot-wrap:hover .sc-dot {
+      opacity: .65
+    }
+
+    .sc-name {
+      flex: 1;
+      font-family: 'Antonio', sans-serif;
+      font-size: 13px;
+      letter-spacing: 1.5px;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .sc-count {
+      font-size: 7.5px;
+      color: var(--mut2);
+      white-space: nowrap;
+      flex-shrink: 0
+    }
+
+    .sc-del {
+      background: none;
+      border: none;
+      color: var(--mut);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 3px;
+      line-height: 1;
+      transition: color .15s, background .15s;
+      flex-shrink: 0
+    }
+
+    .sc-del:hover {
+      color: #ff5555;
+      background: rgba(255, 80, 80, .1)
+    }
+
+    .sc-body {
+      padding: 0 11px 8px
+    }
+
+    .dz {
+      border: 1px dashed var(--bdh);
+      border-radius: 5px;
+      padding: 7px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all .2s
+    }
+
+    .dz:hover,
+    .dz.over {
+      border-color: var(--c, #4af);
+      background: rgba(68, 170, 255, .025)
+    }
+
+    .dz input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%
+    }
+
+    .dz-icon {
+      font-size: 12px;
+      margin-bottom: 1px;
+      pointer-events: none
+    }
+
+    .dz-txt {
+      font-size: 8px;
+      color: var(--mut2);
+      pointer-events: none
+    }
+
+    .chip-list {
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, .022)
+    }
+
+    .chip-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .chip-label {
+      flex: 1;
+      font-size: 8px;
+      color: var(--mut2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .chip-label em {
+      font-style: normal;
+      color: var(--mut);
+      font-size: 7.5px
+    }
+
+    .chip-pts {
+      font-size: 7px;
+      color: var(--mut);
+      flex-shrink: 0
+    }
+
+    .mini-sel {
+      background: var(--card2);
+      border: 1px solid var(--bdh);
+      color: var(--mut2);
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 7.5px;
+      cursor: pointer;
+      outline: none;
+      flex-shrink: 0;
+      transition: border-color .15s;
+      max-width: 80px
+    }
+
+    .mini-sel:hover {
+      border-color: rgba(255, 255, 255, .24);
+      color: var(--text)
+    }
+
+    .mini-sel option {
+      background: var(--sb)
+    }
+
+    .mini-del {
+      background: none;
+      border: none;
+      color: var(--mut);
+      cursor: pointer;
+      padding: 1px 3px;
+      border-radius: 3px;
+      font-size: 9px;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color .15s, background .15s
+    }
+
+    .mini-del:hover {
+      color: #ff5555;
+      background: rgba(255, 80, 80, .1)
+    }
+
+    /* ── BOTTOM TOOLBAR ── */
+    #tb {
+      border-top: 1px solid var(--bd);
+      padding: 7px 12px;
+      display: flex;
+      gap: 5px;
+      flex-shrink: 0
+    }
+
+    .tb-btn {
+      flex: 1;
+      padding: 7px 6px;
+      background: none;
+      border: 1px solid var(--bdh);
+      border-radius: 6px;
+      color: var(--mut2);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 7.5px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all .18s;
+    }
+
+    .tb-btn:hover {
+      border-color: rgba(255, 255, 255, .25);
+      color: #fff;
+      background: rgba(255, 255, 255, .02)
+    }
+
+    .tb-btn.active {
+      border-color: rgba(255, 255, 255, .35);
+      color: #fff;
+      background: rgba(255, 255, 255, .06)
+    }
+
+    #add-btn {
+      margin: 5px 12px 7px;
+      padding: 8px;
+      background: none;
+      border: 1px dashed var(--bdh);
+      border-radius: 7px;
+      color: var(--mut2);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8.5px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all .2s;
+      flex-shrink: 0
+    }
+
+    #add-btn:hover {
+      border-color: rgba(255, 255, 255, .26);
+      color: #fff;
+      background: rgba(255, 255, 255, .02)
+    }
+
+    #add-btn .plus {
+      font-size: 14px;
+      font-weight: 300;
+      line-height: 1
+    }
+
+    /* ── STATS FOOTER ── */
+    #sb-foot {
+      border-top: 1px solid var(--bd);
+      padding: 9px 15px;
+      display: flex;
+      gap: 0;
+      flex-shrink: 0
+    }
+
+    .stat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px
+    }
+
+    .stat+.stat {
+      border-left: 1px solid var(--bd);
+      padding-left: 10px
+    }
+
+    .stat-v {
+      font-family: 'Antonio', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1
+    }
+
+    .stat-l {
+      font-size: 7px;
+      letter-spacing: 2px;
+      color: var(--mut)
+    }
+
+    /* ── MAP ── */
+    #map-wrap {
+      flex: 1;
+      position: relative;
+      transition: flex .3s
+    }
+
+    #map {
+      width: 100%;
+      height: 100%
+    }
+
+    #hint {
+      position: absolute;
+      bottom: 22px;
+      right: 16px;
+      z-index: 900;
+      background: rgba(12, 15, 21, .88);
+      border: 1px solid var(--bdh);
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 8.5px;
+      color: var(--mut2);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+      transition: opacity .5s
+    }
+
+    /* ── FOCUS MODE ── */
+    #focus-exit {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 1000;
+      background: rgba(12, 15, 21, .88);
+      border: 1px solid var(--bdh);
+      border-radius: 7px;
+      padding: 6px 12px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      color: var(--mut2);
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      display: none;
+      transition: color .15s;
+    }
+
+    #app.focus #focus-exit {
+      display: block
+    }
+
+    #focus-exit:hover {
+      color: #fff
+    }
+
+    /* ── TOASTS ── */
+    #toast-wrap {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none
+    }
+
+    .toast {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 9px;
+      letter-spacing: .5px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .25s, transform .25s;
+      backdrop-filter: blur(8px);
+      border: 1px solid;
+      white-space: nowrap
+    }
+
+    .toast.ok {
+      background: rgba(102, 187, 106, .15);
+      border-color: rgba(102, 187, 106, .3);
+      color: var(--ok)
+    }
+
+    .toast.err {
+      background: rgba(239, 83, 80, .15);
+      border-color: rgba(239, 83, 80, .3);
+      color: var(--err)
+    }
+
+    .toast.info {
+      background: rgba(68, 170, 255, .12);
+      border-color: rgba(68, 170, 255, .25);
+      color: #44aaff
+    }
+
+    .toast.in {
+      opacity: 1;
+      transform: none
+    }
+
+    /* ── MODAL ── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px)
+    }
+
+    #overlay.show {
+      display: flex
+    }
+
+    #modal {
+      background: var(--sb);
+      border: 1px solid var(--bdh);
+      border-radius: 12px;
+      padding: 24px 22px 20px;
+      width: 330px;
+      animation: popIn .2s cubic-bezier(.34, 1.56, .64, 1) both
+    }
+
+    @keyframes popIn {
+      from {
+        opacity: 0;
+        transform: scale(.93) translateY(-8px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .modal-title {
+      font-family: 'Antonio', sans-serif;
+      font-size: 20px;
+      letter-spacing: 3px;
+      color: #fff;
+      margin-bottom: 16px
+    }
+
+    .fg {
+      margin-bottom: 13px
+    }
+
+    .fg label {
+      display: block;
+      font-size: 7.5px;
+      letter-spacing: 2.5px;
+      color: var(--mut2);
+      margin-bottom: 5px
+    }
+
+    .fg input[type=text] {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--bdh);
+      border-radius: 5px;
+      padding: 8px 10px;
+      color: #fff;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      outline: none;
+      transition: border-color .2s
+    }
+
+    .fg input[type=text]:focus {
+      border-color: rgba(255, 255, 255, .32)
+    }
+
+    .fg input[type=text].err {
+      border-color: #ef5350
+    }
+
+    .color-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center
+    }
+
+    .cp {
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform .15s, border-color .15s
+    }
+
+    .cp:hover {
+      transform: scale(1.12)
+    }
+
+    .cp.sel {
+      border-color: #fff;
+      transform: scale(1.12)
+    }
+
+    .cp-custom {
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      border: 2px dashed var(--bdh);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--mut2);
+      transition: border-color .15s
+    }
+
+    .cp-custom input {
+      position: absolute;
+      inset: -6px;
+      opacity: 0;
+      cursor: pointer;
+      width: calc(100% + 12px);
+      height: calc(100% + 12px)
+    }
+
+    .cp-custom:hover {
+      border-color: rgba(255, 255, 255, .28)
+    }
+
+    .modal-btns {
+      display: flex;
+      gap: 7px;
+      margin-top: 18px
+    }
+
+    .btn-ok {
+      flex: 1;
+      padding: 9px;
+      background: #fff;
+      color: #07090d;
+      border: none;
+      border-radius: 5px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      transition: opacity .2s
+    }
+
+    .btn-ok:hover {
+      opacity: .82
+    }
+
+    .btn-cancel {
+      padding: 9px 14px;
+      background: none;
+      border: 1px solid var(--bdh);
+      color: var(--mut2);
+      border-radius: 5px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9.5px;
+      cursor: pointer;
+      transition: color .2s, border-color .2s
+    }
+
+    .btn-cancel:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, .26)
+    }
+
+    /* ── CAPTURE MODAL ── */
+    #cap-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .75);
+      z-index: 600;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px)
+    }
+
+    #cap-overlay.show {
+      display: flex
+    }
+
+    #cap-box {
+      background: var(--sb);
+      border: 1px solid var(--bdh);
+      border-radius: 13px;
+      padding: 22px;
+      width: 560px;
+      max-width: 95vw;
+      animation: popIn .2s ease both
+    }
+
+    .cap-title {
+      font-family: 'Antonio', sans-serif;
+      font-size: 19px;
+      letter-spacing: 3px;
+      color: #fff;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    .cap-title button {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--mut2);
+      cursor: pointer;
+      font-size: 16px;
+      transition: color .15s
+    }
+
+    .cap-title button:hover {
+      color: #fff
+    }
+
+    #cap-canvas-wrap {
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1px solid var(--bd);
+      margin-bottom: 14px;
+      min-height: 180px;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    #cap-canvas-wrap canvas {
+      max-width: 100%;
+      border-radius: 6px;
+      display: block
+    }
+
+    #cap-canvas-wrap .cap-spinner {
+      font-size: 24px;
+      opacity: .3;
+      animation: spin 1s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .cap-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: flex-end
+    }
+
+    .cap-ctrl {
+      display: flex;
+      flex-direction: column;
+      gap: 4px
+    }
+
+    .cap-ctrl label {
+      font-size: 7.5px;
+      letter-spacing: 1.5px;
+      color: var(--mut2)
+    }
+
+    .cap-ctrl input[type=color] {
+      width: 40px;
+      height: 28px;
+      border-radius: 4px;
+      border: 1px solid var(--bdh);
+      background: var(--card);
+      cursor: pointer;
+      padding: 2px
+    }
+
+    .cap-ctrl select {
+      background: var(--card);
+      border: 1px solid var(--bdh);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8.5px;
+      cursor: pointer;
+      outline: none
+    }
+
+    .cap-download {
+      margin-left: auto;
+      align-self: flex-end;
+      padding: 8px 18px;
+      background: #fff;
+      color: #07090d;
+      border: none;
+      border-radius: 5px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      transition: opacity .2s
+    }
+
+    .cap-download:hover {
+      opacity: .82
+    }
+
+    /* ── LEAFLET OVERRIDES ── */
+    .leaflet-control-attribution {
+      background: rgba(7, 9, 13, .75) !important;
+      color: #333 !important;
+      font-size: 8px !important
+    }
+
+    .leaflet-control-attribution a {
+      color: #444 !important
+    }
+
+    .leaflet-bar a {
+      background: var(--card) !important;
+      color: var(--text) !important;
+      border-color: var(--bdh) !important
+    }
+
+    .leaflet-bar a:hover {
+      background: var(--card2) !important
+    }
+
+    @media (max-height: 1080px) {
+
+      #add-btn,
+      #tb,
+      #sb-foot {
+        translate: 0 -10vh;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- GPX WEB WORKER SOURCE (not executed by browser) -->
+  <script id="gpx-worker-src" type="text/js-worker">
+self.onmessage = function(e) {
+  var id = e.data.id, xml = e.data.xml;
+  try {
+    var pts = [], elevs = [];
+    var nmM = xml.match(/<trk[\s\S]*?<name>([^<]+)<\/name>/);
+    var tyM = xml.match(/<type>([^<]+)<\/type>/);
+    var activityName = nmM ? nmM[1].trim() : null;
+    var activityType = tyM ? tyM[1].trim().toLowerCase() : null;
+
+    // parse trkpt / rtept
+    var re = /<(?:trkpt|rtept)\s+([^>]+)>([\s\S]*?)<\/(?:trkpt|rtept)>/g;
+    var m;
+    while ((m = re.exec(xml)) !== null) {
+      var atr = m[1], inn = m[2];
+      var laM = atr.match(/lat="([^"]+)"/);
+      var loM = atr.match(/lon="([^"]+)"/);
+      if (!laM || !loM) continue;
+      var la = parseFloat(laM[1]), lo = parseFloat(loM[1]);
+      if (isNaN(la) || isNaN(lo)) continue;
+      var em = inn.match(/<ele>([^<]+)<\/ele>/);
+      pts.push([Math.round(la * 1e5) / 1e5, Math.round(lo * 1e5) / 1e5]);
+      elevs.push(em ? parseFloat(em[1]) : null);
+    }
+    self.postMessage({ id: id, ok: true, pts: pts, elevs: elevs,
+      activityName: activityName, activityType: activityType });
+  } catch (err) {
+    self.postMessage({ id: id, ok: false, error: err.message });
+  }
+};
+</script>
+
+  <div id="app">
+    <div id="sidebar">
+      <div id="sb-head">
+        <div class="logo">TRAX</div>
+        <div class="logo-sub">GPX HEATMAP VISUALIZER</div>
+        <div class="head-row">
+          <a href="howto" target="_blank"><button class="hbtn">TUTORIAL</button></a>
+
+          <button class="hbtn" id="btn-export" title="Export visible routes as .trax">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            EXPORT
+          </button>
+          <button class="hbtn" id="btn-compare" title="Import .trax for comparison">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="18" cy="18" r="3" />
+              <circle cx="6" cy="6" r="3" />
+              <path d="M6 21V9a9 9 0 009 9" />
+            </svg>
+            COMPARE
+          </button>
+          <input type="file" id="compare-input" accept=".trax" multiple style="display:none">
+        </div>
+      </div>
+
+      <div id="cmp-panel">
+        <div class="cmp-hd">
+          <span class="cmp-badge">COMPARE</span>
+          <span class="cmp-info" id="cmp-info"></span>
+          <button class="cmp-exit" id="cmp-exit">✕ EXIT</button>
+        </div>
+        <div class="cmp-files" id="cmp-files"></div>
+        <button class="cmp-add"><input type="file" id="cmp-add-input" accept=".trax" multiple>+ ADD .trax FILE</button>
+      </div>
+
+      <div id="loading-bar">
+        <div id="loading-fill"></div>
+      </div>
+      <div id="loading-msg"></div>
+
+      <div id="global-dz">
+        <input type="file" id="global-input" accept=".gpx" multiple>
+        <span class="gdz-icon">⚡</span>
+        <div class="gdz-txt">
+          <div class="gdz-main">AUTO UPLOAD</div>
+          <div class="gdz-sub">Sport detected from file content</div>
+        </div>
+      </div>
+
+      <div id="pending-box"></div>
+      <div id="sb-scroll">
+        <div id="empty">
+          <div class="empty-ring">◎</div>
+          <p>No routes yet.<br>Upload GPX files via ⚡<br>or create a sport.</p>
+        </div>
+      </div>
+      <button id="add-btn"><span class="plus">+</span><span>NEW SPORT</span></button>
+      <div id="tb">
+        <button class="tb-btn" id="btn-elev" title="Color routes by elevation">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 17 9 11 13 15 21 7" />
+          </svg>
+          ELEVATION
+        </button>
+        <button class="tb-btn" id="btn-capture" title="Screenshot">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+            <circle cx="12" cy="13" r="4" />
+          </svg>
+          CAPTURE
+        </button>
+        <button class="tb-btn" id="btn-focus" title="Focus mode">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 3 21 3 21 9" />
+            <polyline points="9 21 3 21 3 15" />
+            <line x1="21" y1="3" x2="14" y2="10" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+          FOCUS
+        </button>
+      </div>
+      <div id="sb-foot">
+        <div class="stat"><span class="stat-v" id="sv-r">0</span><span class="stat-l">ROUTES</span></div>
+        <div class="stat"><span class="stat-v" id="sv-p">0</span><span class="stat-l">POINTS</span></div>
+        <div class="stat"><span class="stat-v" id="sv-s">0</span><span class="stat-l">SPORTS</span></div>
+      </div>
+    </div>
+
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div id="hint">⬅ Upload GPX files or create a sport</div>
+    </div>
+  </div>
+
+  <button id="focus-exit">⊕ SHOW PANEL</button>
+  <div id="toast-wrap"></div>
+
+  <!-- ADD SPORT MODAL -->
+  <div id="overlay">
+    <div id="modal">
+      <div class="modal-title">NEW SPORT</div>
+      <div class="fg"><label>NAME</label><input type="text" id="inp-name" placeholder="e.g. Running, Cycling, Hiking …"
+          maxlength="28" autocomplete="off"></div>
+      <div class="fg"><label>HEATMAP COLOR</label>
+        <div class="color-grid" id="color-grid"></div>
+      </div>
+      <div class="modal-btns">
+        <button class="btn-cancel" id="btn-cancel">CANCEL</button>
+        <button class="btn-ok" id="btn-ok">CREATE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAPTURE MODAL -->
+  <div id="cap-overlay">
+    <div id="cap-box">
+      <div class="cap-title">CAPTURE MAP <button id="cap-close">✕</button></div>
+      <div id="cap-canvas-wrap">
+        <div class="cap-spinner">◎</div>
+      </div>
+      <div class="cap-controls">
+        <div class="cap-ctrl"><label>BACKGROUND</label><input type="color" id="cap-bg" value="#07090d"></div>
+        <div class="cap-ctrl"><label>SCALE</label>
+          <select id="cap-scale">
+            <option value="1">1× Standard</option>
+            <option value="2" selected>2× High DPI</option>
+            <option value="3">3× Print</option>
+          </select>
+        </div>
+        <div class="cap-ctrl"><label>GLOW</label>
+          <select id="cap-glow">
+            <option value="0">None</option>
+            <option value="1" selected>Soft</option>
+            <option value="2">Strong</option>
+          </select>
+        </div>
+        <button class="cap-download" id="cap-dl">↓ Download PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    /* ═══════════════════════════════════════════════════════════
+       WEB WORKER (non-blocking GPX parse)
+    ═══════════════════════════════════════════════════════════ */
+    const workerSrc = document.getElementById('gpx-worker-src').textContent;
+    const worker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: 'application/javascript' })));
+    const workerTasks = new Map();
+    worker.onmessage = ({ data }) => {
+      const t = workerTasks.get(data.id);
+      if (!t) return;
+      workerTasks.delete(data.id);
+      if (data.ok) t.resolve(data);
+      else t.reject(new Error(data.error || 'Parse error'));
+    };
+    worker.onerror = e => console.error('Worker error:', e);
+
+    function parseGPXAsync(xml) {
+      const id = ++_uid;
+      return new Promise((resolve, reject) => {
+        workerTasks.set(id, { resolve, reject });
+        worker.postMessage({ id, xml });
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       TOAST NOTIFICATIONS
+    ═══════════════════════════════════════════════════════════ */
+    function toast(msg, type = 'info', dur = 3500) {
+      const el = document.createElement('div');
+      el.className = 'toast ' + type;
+      el.textContent = msg;
+      document.getElementById('toast-wrap').appendChild(el);
+      requestAnimationFrame(() => { el.classList.add('in'); });
+      setTimeout(() => {
+        el.classList.remove('in');
+        setTimeout(() => el.remove(), 300);
+      }, dur);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       LOADING INDICATOR
+    ═══════════════════════════════════════════════════════════ */
+    let _loadingN = 0;
+    function loadingStart(msg = 'Processing…') {
+      _loadingN++;
+      document.getElementById('loading-bar').classList.add('show');
+      document.getElementById('loading-msg').classList.add('show');
+      document.getElementById('loading-msg').textContent = msg;
+      document.getElementById('loading-fill').style.width = '30%';
+    }
+    function loadingProgress(pct, msg) {
+      document.getElementById('loading-fill').style.width = pct + '%';
+      if (msg) document.getElementById('loading-msg').textContent = msg;
+    }
+    function loadingDone() {
+      _loadingN = Math.max(0, _loadingN - 1);
+      if (_loadingN > 0) return;
+      const fill = document.getElementById('loading-fill');
+      fill.style.width = '100%';
+      setTimeout(() => {
+        document.getElementById('loading-bar').classList.remove('show');
+        document.getElementById('loading-msg').classList.remove('show');
+        fill.style.width = '0%';
+      }, 400);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BINARY COMPRESSION for .trax
+    ═══════════════════════════════════════════════════════════ */
+    function u8ToB64(bytes) {
+      let s = '';
+      const chunk = 8192;
+      for (let i = 0; i < bytes.length; i += chunk)
+        s += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      return btoa(s);
+    }
+    function b64ToU8(b64) {
+      const s = atob(b64);
+      const u = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+      return u;
+    }
+    function encodePts(pts) {
+      if (!pts.length) return '';
+      const buf = new Int32Array(pts.length * 2);
+      let pa = 0, po = 0;
+      for (let i = 0; i < pts.length; i++) {
+        const a = Math.round(pts[i][0] * 1e5), o = Math.round(pts[i][1] * 1e5);
+        buf[i * 2] = a - pa; buf[i * 2 + 1] = o - po; pa = a; po = o;
+      }
+      return u8ToB64(new Uint8Array(buf.buffer));
+    }
+    function decodePts(b64) {
+      if (!b64) return [];
+      const arr = new Int32Array(b64ToU8(b64).buffer);
+      const pts = []; let a = 0, o = 0;
+      for (let i = 0; i < arr.length; i += 2) {
+        a += arr[i]; o += arr[i + 1];
+        pts.push([a / 1e5, o / 1e5]);
+      }
+      return pts;
+    }
+    function encodeElevs(elevs) {
+      if (!elevs || !elevs.length) return '';
+      const buf = new Int16Array(elevs.length);
+      for (let i = 0; i < elevs.length; i++)
+        buf[i] = elevs[i] == null ? -32768 : Math.max(-32767, Math.min(32767, Math.round(elevs[i])));
+      return u8ToB64(new Uint8Array(buf.buffer));
+    }
+    function decodeElevs(b64) {
+      if (!b64) return null;
+      const arr = new Int16Array(b64ToU8(b64).buffer);
+      return Array.from(arr, v => v === -32768 ? null : v);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       INDEXEDDB
+    ═══════════════════════════════════════════════════════════ */
+    /* const IDB = (() => {
+      let db = null;
+      async function open() {
+        if (db) return;
+        db = await new Promise((res, rej) => {
+          const r = indexedDB.open('trax_v5', 1);
+          r.onupgradeneeded = e => {
+            const d = e.target.result;
+            if (!d.objectStoreNames.contains('sports')) d.createObjectStore('sports', {keyPath:'id'});
+            if (!d.objectStoreNames.contains('files'))  d.createObjectStore('files',  {keyPath:'id'});
+          };
+          r.onsuccess = e => { db = e.target.result; res(); };
+          r.onerror   = e => rej(e.target.error);
+        });
+      }
+      function tx(store, mode, fn) {
+        return new Promise((res, rej) => {
+          const t = db.transaction(store, mode), s = t.objectStore(store), q = fn(s);
+          if (q) { q.onsuccess = e => res(e.target.result); q.onerror = e => rej(e.target.error); }
+          else { t.oncomplete = () => res(); t.onerror = e => rej(e.target.error); }
+        });
+      }
+      return {
+        open,
+        put:    (store, obj) => tx(store, 'readwrite', s => s.put(obj)),
+        del:    (store, id)  => tx(store, 'readwrite', s => s.delete(id)),
+        getAll: (store)      => tx(store, 'readonly',  s => s.getAll()),
+      };
+    })();
+    */
+
+    /* CHATGPT BLOCK */
+
+
+    const IDB = (() => {
+      let db = null;
+      let opening = null;
+
+      async function open() {
+        if (db) return db;
+        if (opening) return opening;
+
+        opening = new Promise((res, rej) => {
+          const r = indexedDB.open('trax_v5', 1);
+
+          r.onupgradeneeded = e => {
+            const d = e.target.result;
+
+            if (!d.objectStoreNames.contains('sports')) {
+              d.createObjectStore('sports', { keyPath: 'id' });
+            }
+
+            if (!d.objectStoreNames.contains('files')) {
+              d.createObjectStore('files', { keyPath: 'id' });
+            }
+          };
+
+          r.onsuccess = e => {
+            db = e.target.result;
+            res(db);
+          };
+
+          r.onerror = e => {
+            console.error('IndexedDB open failed:', e.target.error);
+            rej(e.target.error);
+          };
+        });
+
+        return opening;
+      }
+
+      function tx(store, mode, fn) {
+        if (!db) {
+          return Promise.reject(new Error('IndexedDB not initialized'));
+        }
+
+        return new Promise((res, rej) => {
+          try {
+            const t = db.transaction(store, mode);
+            const s = t.objectStore(store);
+            const q = fn(s);
+
+            if (q) {
+              q.onsuccess = e => res(e.target.result);
+              q.onerror = e => rej(e.target.error);
+            } else {
+              t.oncomplete = () => res();
+              t.onerror = e => rej(e.target.error);
+            }
+          } catch (err) {
+            rej(err);
+          }
+        });
+      }
+
+      return {
+        open,
+        put: (store, obj) => tx(store, 'readwrite', s => s.put(obj)),
+        del: (store, id) => tx(store, 'readwrite', s => s.delete(id)),
+        getAll: (store) => tx(store, 'readonly', s => s.getAll()),
+      };
+    })();
+
+
+
+
+    /* ═══════════════════════════════════════════════════════════
+       SPORT RULES
+    ═══════════════════════════════════════════════════════════ */
+    const RULES = [
+      {
+        key: 'run', name: 'Running', color: '#e53935',
+        typeKeys: ['running', 'trail running', 'virtualrun', 'run', 'trailrun', 'race'],
+        fileKw: ['run', 'running', 'jogging', 'jog', 'marathon', 'parkrun', 'trailrun', '5km', '10km', 'halfmarathon']
+      },
+      {
+        key: 'ride', name: 'Cycling', color: '#ff8c00',
+        typeKeys: ['cycling', 'ride', 'mountainbikeride', 'gravelride', 'virtualride', 'ebikeride', 'mountain bike ride', 'gravel ride', 'mtbride'],
+        fileKw: ['ride', 'riding', 'cycling', 'bike', 'biking', 'mtb', 'bicycle', 'gravel', 'velo', 'radtour', 'rennrad', 'mountainbike', 'ebike']
+      },
+      {
+        key: 'swim', name: 'Swimming', color: '#1e88e5',
+        typeKeys: ['swimming', 'open water swimming', 'openwater', 'pool swim', 'swim'],
+        fileKw: ['swim', 'swimming', 'pool', 'openwater', 'freiwasser', 'triathlon']
+      },
+      {
+        key: 'hike', name: 'Hiking', color: '#43a047',
+        typeKeys: ['hiking', 'walking', 'hike', 'walk', 'trailhike'],
+        fileKw: ['hike', 'hiking', 'walk', 'walking', 'trekking', 'trek', 'trail', 'wandern', 'bergwandern']
+      },
+      {
+        key: 'ski', name: 'Ski / Winter', color: '#cfd8e8',
+        typeKeys: ['alpineski', 'backcountryski', 'nordicski', 'snowboard', 'snowboarding', 'alpine ski', 'backcountry ski', 'nordic ski', 'skitouring'],
+        fileKw: ['ski', 'skiing', 'skitour', 'snowboard', 'alpine', 'alpin', 'backcountry', 'langlauf', 'crosscountry', 'snowshoe']
+      },
+      {
+        key: 'paddle', name: 'Paddling', color: '#00acc1',
+        typeKeys: ['kayaking', 'rowing', 'canoeing', 'standuppaddling', 'sup'],
+        fileKw: ['kayak', 'paddle', 'rowing', 'canoe', 'rudern', 'sup']
+      },
+      {
+        key: 'yoga', name: 'Gym / Yoga', color: '#e91e8c',
+        typeKeys: ['yoga', 'workout', 'weighttraining', 'crossfit', 'hiit'],
+        fileKw: ['yoga', 'gym', 'workout', 'fitness', 'crossfit', 'pilates', 'hiit']
+      },
+    ];
+    const RULE_MAP = Object.fromEntries(RULES.map(r => [r.key, r]));
+
+    const TYPE_NAMES = {
+      'running': 'Running', 'trail running': 'Trail Run', 'virtualrun': 'Running',
+      'cycling': 'Cycling', 'ride': 'Cycling', 'mountainbikeride': 'MTB',
+      'mountain bike ride': 'MTB', 'gravelride': 'Gravel', 'gravel ride': 'Gravel',
+      'virtualride': 'Cycling', 'ebikeride': 'E-Bike', 'mtbride': 'MTB',
+      'swimming': 'Swimming', 'open water swimming': 'Open Water', 'pool swim': 'Pool', 'swim': 'Swimming',
+      'hiking': 'Hiking', 'walking': 'Walking', 'hike': 'Hiking',
+      'alpineski': 'Alpine Ski', 'backcountryski': 'Ski Touring', 'nordicski': 'Nordic Ski',
+      'snowboard': 'Snowboard', 'snowboarding': 'Snowboard', 'alpine ski': 'Alpine Ski',
+      'backcountry ski': 'Ski Touring', 'nordic ski': 'Nordic Ski', 'skitouring': 'Ski Touring',
+      'kayaking': 'Kayaking', 'rowing': 'Rowing', 'standuppaddling': 'SUP', 'canoeing': 'Canoeing', 'sup': 'SUP',
+      'yoga': 'Yoga', 'workout': 'Workout', 'weighttraining': 'Strength', 'crossfit': 'CrossFit', 'hiit': 'HIIT',
+    };
+
+    function detectKeyFromType(t) {
+      if (!t) return null;
+      const lo = t.toLowerCase().trim();
+      for (const r of RULES) {
+        if (r.typeKeys.some(k => k === lo || lo.includes(k) || k.includes(lo))) return r.key;
+      }
+      return null;
+    }
+    function detectKeyFromFile(fn) {
+      const base = fn.replace(/\.gpx$/i, '').replace(/[^a-zA-Z0-9]/g, ' ').toLowerCase();
+      const words = base.split(/\s+/).filter(w => w.length > 1);
+      for (const r of RULES) {
+        for (const kw of r.fileKw) {
+          if (words.includes(kw) || words.some(w => w.startsWith(kw) && kw.length >= 4)) return r.key;
+        }
+      }
+      return null;
+    }
+    function chipLabel(f) {
+      const name = f.activityName || f.name.replace(/\.gpx$/i, '');
+      const type = f.activityType ? (TYPE_NAMES[f.activityType] || null) : null;
+      return type ? `${name} <em>(${type})</em>` : name;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       STATE
+    ═══════════════════════════════════════════════════════════ */
+    let sports = [];
+    let pending = [];
+    let _uid = Date.now();
+    const uid = () => ++_uid;
+
+    // Compare
+    let compareMode = false;
+    let compareFiles = [];  // raw: [{id,name,data}]
+    let compareGroups = [];  // rendered: [{id,label,color,pts,layer}]
+    let cpColorIdx = 0;
+    const CP_COLORS = ['#ff3f3f', '#00e676', '#ffd600', '#b47dff', '#ff69b4', '#00e5ff', '#ff8c00', '#80deea'];
+
+    // Elevation
+    let elevEnabled = false;
+    let elevCanvas = null;
+    let elevTimer = null;
+
+    /* ═══════════════════════════════════════════════════════════
+       MAP
+    ═══════════════════════════════════════════════════════════ */
+    const map = L.map('map', { center: [48.5, 11.0], zoom: 5, zoomControl: false });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 20, crossOrigin: true,
+    }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    /* ═══════════════════════════════════════════════════════════
+       HEATMAP LAYERS (zoom-adaptive, ultra-low blur)
+    ═══════════════════════════════════════════════════════════ */
+    function heatOpts(zoom) {
+      if (zoom <= 8) return { radius: 3, blur: 0 };
+      if (zoom <= 11) return { radius: 4, blur: 1 };
+      if (zoom <= 14) return { radius: 4, blur: 1 };
+      return { radius: 4, blur: 1 };
+    }
+    function hex2rgb(h) {
+      const n = parseInt(h.replace('#', ''), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    function makeGrad(hex, opacity = 1) {
+      const [r, g, b] = hex2rgb(hex);
+      return {
+        0.0: `rgba(${r},${g},${b},0)`,
+        0.4: `rgba(${r},${g},${b},${(0.42 * opacity).toFixed(2)})`,
+        0.75: `rgba(${r},${g},${b},${(0.85 * opacity).toFixed(2)})`,
+        1.0: `rgba(${r},${g},${b},${opacity.toFixed(2)})`,
+      };
+    }
+
+    function setCanvasOpacity(layer, val, animated = false) {
+      const trySet = () => {
+        const c = layer && layer._canvas;
+        if (c) {
+          if (animated) {
+            c.style.transition = 'opacity 0.65s ease';
+            c.style.opacity = '0';
+            requestAnimationFrame(() => { c.style.opacity = String(val); });
+          } else {
+            c.style.transition = '';
+            c.style.opacity = String(val);
+          }
+        }
+      };
+      setTimeout(trySet, 60);
+    }
+
+    function rebuildLayer(sport, animate = false) {
+      if (sport.layer) { map.removeLayer(sport.layer); sport.layer = null; }
+      const all = sport.files.flatMap(f => f.pts.map(([la, lo]) => [la, lo, 0.6]));
+      if (!all.length) return;
+      const opts = heatOpts(map.getZoom());
+      sport.layer = L.heatLayer(all, {
+        ...opts, maxZoom: 19, gradient: makeGrad(sport.color), minOpacity: 0.25,
+      });
+      if (sport.visible) sport.layer.addTo(map);
+      if (animate) setCanvasOpacity(sport.layer, 1, true);
+    }
+
+    let zTimer = null;
+    map.on('zoomend', () => {
+      clearTimeout(zTimer);
+      zTimer = setTimeout(() => {
+        sports.forEach(s => { if (s.files.length) rebuildLayer(s); });
+        rebuildAllCompare();
+      }, 150);
+    });
+
+    /* ═══════════════════════════════════════════════════════════
+       ELEVATION CANVAS LAYER
+    ═══════════════════════════════════════════════════════════ */
+    function initElevCanvas() {
+      if (elevCanvas) return;
+      elevCanvas = document.createElement('canvas');
+      elevCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:450;opacity:0;transition:opacity .4s';
+      document.getElementById('map').appendChild(elevCanvas);
+      map.on('moveend zoomend resize', scheduleElevRedraw);
+    }
+
+    function scheduleElevRedraw() {
+      clearTimeout(elevTimer);
+      if (!elevEnabled) return;
+      elevTimer = setTimeout(drawElev, 80);
+    }
+
+    function drawElev() {
+      if (!elevCanvas || !elevEnabled) return;
+      const mapEl = document.getElementById('map');
+      elevCanvas.width = mapEl.offsetWidth;
+      elevCanvas.height = mapEl.offsetHeight;
+      const ctx = elevCanvas.getContext('2d');
+      ctx.clearRect(0, 0, elevCanvas.width, elevCanvas.height);
+
+      // Global elevation range
+      let mn = Infinity, mx = -Infinity;
+      sports.forEach(s => s.files.forEach(f => {
+        if (f.elevs) f.elevs.forEach(e => { if (e != null) { if (e < mn) mn = e; if (e > mx) mx = e; } });
+      }));
+      const hasElevData = isFinite(mn);
+      if (!hasElevData) {
+        toast('No elevation data in loaded routes', 'info');
+        return;
+      }
+      const eRange = mx - mn || 1;
+      const NUM_B = 28;
+
+      sports.forEach(sport => {
+        if (!sport.visible) return;
+        const [r, g, b] = hex2rgb(sport.color);
+        sport.files.forEach(file => {
+          if (!file.pts || !file.elevs) return;
+          const n = file.pts.length;
+          if (n < 2) return;
+          // Bucket segments by elevation
+          const buckets = Array.from({ length: NUM_B }, () => []);
+          for (let i = 0; i < n - 1; i++) {
+            const e = file.elevs[i] ?? mn;
+            const t = Math.max(0, Math.min(1, (e - mn) / eRange));
+            buckets[Math.min(Math.floor(t * NUM_B), NUM_B - 1)].push(i);
+          }
+          buckets.forEach((idxs, bi) => {
+            if (!idxs.length) return;
+            const t = bi / (NUM_B - 1);
+            const bri = 1 - t * 0.78;
+            ctx.strokeStyle = `rgba(${Math.round(r * bri)},${Math.round(g * bri)},${Math.round(b * bri)},0.9)`;
+            ctx.lineWidth = 1.7; ctx.lineCap = 'round'; ctx.beginPath();
+            idxs.forEach(i => {
+              const p1 = map.latLngToContainerPoint([file.pts[i][0], file.pts[i][1]]);
+              const p2 = map.latLngToContainerPoint([file.pts[i + 1][0], file.pts[i + 1][1]]);
+              ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+            });
+            ctx.stroke();
+          });
+        });
+      });
+    }
+
+    function toggleElevation() {
+      initElevCanvas();
+      elevEnabled = !elevEnabled;
+      document.getElementById('btn-elev').classList.toggle('active', elevEnabled);
+      elevCanvas.style.opacity = elevEnabled ? '1' : '0';
+      if (elevEnabled) {
+        // hide heatmaps
+        sports.forEach(s => { if (s.layer) map.removeLayer(s.layer); });
+        scheduleElevRedraw();
+      } else {
+        // show heatmaps
+        sports.forEach(s => { if (s.layer && s.visible) s.layer.addTo(map); });
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PERSISTENCE
+    ═══════════════════════════════════════════════════════════ */
+    async function saveSport(s) {
+      await IDB.put('sports', { id: s.id, name: s.name, color: s.color, visible: s.visible, ruleKey: s._ruleKey || null });
+    }
+    async function saveFile(f, sportId) {
+      await IDB.put('files', {
+        id: f.id, sportId: sportId ?? null, name: f.name,
+        activityName: f.activityName || null, activityType: f.activityType || null,
+        pts: encodePts(f.pts), elevs: encodeElevs(f.elevs),
+      });
+    }
+    async function loadAll() {
+      await IDB.open();
+      const [dbS, dbF] = await Promise.all([IDB.getAll('sports'), IDB.getAll('files')]);
+      sports = dbS.map(s => ({
+        id: s.id, name: s.name, color: s.color, visible: s.visible,
+        _ruleKey: s.ruleKey || null, files: [], layer: null,
+      }));
+      pending = [];
+      for (const f of dbF) {
+        const entry = {
+          id: f.id, name: f.name, activityName: f.activityName || null, activityType: f.activityType || null,
+          pts: (typeof f.pts === 'string') ? decodePts(f.pts) : (f.pts || []),
+          elevs: (typeof f.elevs === 'string' && f.elevs) ? decodeElevs(f.elevs) : (f.elevs || null),
+        };
+        if (f.sportId != null) {
+          const sp = sports.find(s => s.id === f.sportId);
+          if (sp) sp.files.push(entry); else pending.push({ ...entry, ptCount: entry.pts.length });
+        } else {
+          pending.push({ ...entry, ptCount: entry.pts.length });
+        }
+      }
+      sports.forEach(s => rebuildLayer(s));
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       INGEST FILES (non-blocking via Worker)
+    ═══════════════════════════════════════════════════════════ */
+    async function ingestFiles(fileList, targetSportId) {
+      const files = [...fileList].filter(f => f.name.toLowerCase().endsWith('.gpx'));
+      if (!files.length) return;
+
+      const allNames = new Set([
+        ...sports.flatMap(s => s.files.map(f => f.name)),
+        ...pending.map(f => f.name),
+      ]);
+
+      const fresh = files.filter(f => !allNames.has(f.name));
+      if (!fresh.length) { toast('No new files (duplicates skipped)', 'info'); return; }
+
+      loadingStart(`Parsing ${fresh.length} file${fresh.length > 1 ? 's' : ''}…`);
+      const bounds = [];
+      let done = 0, errCount = 0;
+
+      for (const file of fresh) {
+        let xml;
+        try { xml = await file.text(); } catch (e) { errCount++; done++; continue; }
+
+        let result;
+        try {
+          result = await parseGPXAsync(xml);
+        } catch (e) {
+          toast(`Failed to parse ${file.name}`, 'err');
+          errCount++; done++;
+          loadingProgress(Math.round(done / fresh.length * 90), `Parsing… (${done}/${fresh.length})`);
+          continue;
+        }
+
+        const { pts, elevs, activityName, activityType } = result;
+        if (!pts.length) { toast(`No track points in ${file.name}`, 'info'); done++; continue; }
+
+        const entry = {
+          id: uid(), name: file.name, activityName, activityType, pts,
+          elevs: elevs.some(e => e != null) ? elevs : null
+        };
+
+        let assignedId = targetSportId;
+        if (!assignedId) {
+          const key = detectKeyFromType(activityType) || detectKeyFromFile(file.name);
+          if (key) {
+            let sp = sports.find(s => s._ruleKey === key);
+            if (!sp) {
+              const rule = RULE_MAP[key];
+              sp = { id: uid(), name: rule.name, color: rule.color, visible: true, _ruleKey: key, files: [], layer: null };
+              sports.push(sp);
+              await saveSport(sp);
+            }
+            assignedId = sp.id;
+          }
+        }
+
+        if (assignedId) {
+          const sp = sports.find(s => s.id === assignedId);
+          if (sp) {
+            sp.files.push(entry);
+            await saveFile(entry, sp.id);
+            pts.forEach(([la, lo]) => bounds.push([la, lo]));
+            rebuildLayer(sp, true);
+            if (elevEnabled) scheduleElevRedraw();
+          }
+        } else {
+          pending.push({ ...entry, ptCount: pts.length });
+          await saveFile(entry, null);
+        }
+
+        done++;
+        loadingProgress(Math.round(done / fresh.length * 90), `Parsing… (${done}/${fresh.length})`);
+      }
+
+      if (bounds.length) {
+        const allPts = sports.flatMap(s => s.files.flatMap(f => f.pts));
+        if (allPts.length) { try { map.fitBounds(L.latLngBounds(allPts).pad(0.08)); } catch { } }
+        document.getElementById('hint').style.opacity = '0';
+      }
+
+      loadingDone();
+      if (errCount) toast(`${errCount} file${errCount > 1 ? 's' : ''} failed to parse`, 'err');
+      else if (done > 0) toast(`${done - errCount} route${done > 1 ? 's' : ''} loaded`, 'ok');
+      render();
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       ASSIGN / DELETE
+    ═══════════════════════════════════════════════════════════ */
+    async function assignFile(fileId, newSportId) {
+      let entry = null, fromSport = null;
+      const pi = pending.findIndex(f => f.id === fileId);
+      if (pi >= 0) { const p = pending.splice(pi, 1)[0]; entry = { id: p.id, name: p.name, activityName: p.activityName, activityType: p.activityType, pts: p.pts, elevs: p.elevs }; }
+      if (!entry) {
+        for (const s of sports) {
+          const fi = s.files.findIndex(f => f.id === fileId);
+          if (fi >= 0) { entry = s.files.splice(fi, 1)[0]; fromSport = s; break; }
+        }
+      }
+      if (!entry) return;
+      if (fromSport) { rebuildLayer(fromSport); if (elevEnabled) scheduleElevRedraw(); }
+      if (newSportId === null) {
+        pending.push({ ...entry, ptCount: entry.pts.length });
+        await saveFile(entry, null);
+      } else {
+        const to = sports.find(s => s.id === newSportId);
+        if (to) {
+          to.files.push(entry);
+          rebuildLayer(to, true);
+          await saveFile(entry, newSportId);
+          if (elevEnabled) scheduleElevRedraw();
+        }
+      }
+      render();
+    }
+
+    async function deleteFile(fileId) {
+      const pi = pending.findIndex(f => f.id === fileId);
+      if (pi >= 0) pending.splice(pi, 1);
+      for (const s of sports) {
+        const fi = s.files.findIndex(f => f.id === fileId);
+        if (fi >= 0) { s.files.splice(fi, 1); rebuildLayer(s); if (elevEnabled) scheduleElevRedraw(); break; }
+      }
+      await IDB.del('files', fileId);
+      render();
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       COMPARE MODE
+       - Own routes: always visible at full opacity
+       - 1 .trax file: each route inside gets its own color @ 0.5
+       - 2+ .trax files: each file = one color @ 0.5
+    ═══════════════════════════════════════════════════════════ */
+    const ROUTE_PALETTE = ['#ff3f3f', '#00e676', '#ffd600', '#b47dff', '#ff69b4', '#00e5ff', '#ff8c00', '#80deea', '#ff6b6b', '#51cf66'];
+
+    function buildCompareGroups() {
+      compareGroups.forEach(g => { if (g.layer) map.removeLayer(g.layer); });
+      compareGroups = [];
+
+      if (compareFiles.length === 0) return;
+
+      if (compareFiles.length === 1) {
+        // Individual route mode: each route in the single file gets its own color
+        const file = compareFiles[0];
+        const allRoutes = (file.data.sports || []).flatMap(s => s.files || []);
+        allRoutes.forEach((route, i) => {
+          const color = ROUTE_PALETTE[i % ROUTE_PALETTE.length];
+          const pts = (typeof route.pts === 'string') ? decodePts(route.pts) : (route.pts || []);
+          const label = route.activityName || route.name || `Route ${i + 1}`;
+          const g = { id: uid(), label, color, pts, layer: null };
+          compareGroups.push(g);
+        });
+        const info = `${allRoutes.length} routes — individual colors`;
+        document.getElementById('cmp-info').textContent = info;
+      } else {
+        // Multi-file mode: each file = one color, all routes combined
+        compareFiles.forEach((cf, i) => {
+          const color = CP_COLORS[i % CP_COLORS.length];
+          const allPts = (cf.data.sports || []).flatMap(s => (s.files || []).flatMap(r => {
+            return (typeof r.pts === 'string') ? decodePts(r.pts) : (r.pts || []);
+          }));
+          const routeCount = (cf.data.sports || []).reduce((a, s) => a + (s.files || []).length, 0);
+          const g = { id: cf.id, label: cf.name, color, pts: allPts, routeCount, layer: null };
+          compareGroups.push(g);
+        });
+        document.getElementById('cmp-info').textContent = `${compareFiles.length} files`;
+      }
+
+      rebuildAllCompare();
+    }
+
+    function rebuildAllCompare() {
+      const opts = heatOpts(map.getZoom());
+      compareGroups.forEach(g => {
+        if (g.layer) map.removeLayer(g.layer);
+        if (!g.pts.length) return;
+        g.layer = L.heatLayer(g.pts.map(([la, lo]) => [la, lo, 0.6]), {
+          ...opts, maxZoom: 19, gradient: makeGrad(g.color, 1), minOpacity: 0.25,
+        });
+        g.layer.addTo(map);
+        // Set 50% opacity on the canvas
+        setCanvasOpacity(g.layer, 0.5, false);
+      });
+    }
+
+    async function importTrax(file) {
+      loadingStart(`Loading ${file.name}…`);
+      let data;
+      try {
+        data = JSON.parse(await file.text());
+      } catch (e) {
+        loadingDone();
+        toast(`Invalid .trax file: ${file.name}`, 'err');
+        return;
+      }
+
+      compareFiles.push({ id: uid(), name: file.name.replace(/\.trax$/i, ''), data });
+      compareMode = true;
+
+      const allPts = (data.sports || []).flatMap(s => (s.files || []).flatMap(f => {
+        const pts = (typeof f.pts === 'string') ? decodePts(f.pts) : (f.pts || []);
+        return pts;
+      }));
+      if (allPts.length) {
+        try { map.fitBounds(L.latLngBounds(allPts).pad(0.08)); } catch { }
+        document.getElementById('hint').style.opacity = '0';
+      }
+
+      buildCompareGroups();
+      renderCompare();
+      loadingDone();
+      toast(`Loaded ${file.name}`, 'ok');
+    }
+
+    function removeCompareFile(cfId) {
+      const i = compareFiles.findIndex(c => c.id === cfId);
+      if (i < 0) return;
+      compareFiles.splice(i, 1);
+      if (!compareFiles.length) { exitCompare(); return; }
+      buildCompareGroups();
+      renderCompare();
+    }
+
+    function exitCompare() {
+      compareGroups.forEach(g => { if (g.layer) map.removeLayer(g.layer); });
+      compareGroups = []; compareFiles = []; compareMode = false; cpColorIdx = 0;
+      document.getElementById('cmp-panel').classList.remove('show');
+      render();
+    }
+
+    function renderCompare() {
+      const panel = document.getElementById('cmp-panel');
+      panel.classList.toggle('show', compareMode && compareFiles.length > 0);
+      if (!compareMode) return;
+
+      const filesDiv = document.getElementById('cmp-files');
+      if (compareFiles.length === 1) {
+        // Show individual route colors
+        filesDiv.innerHTML = `<div style="font-size:7.5px;color:var(--mut2);margin-bottom:4px;letter-spacing:.5px">${compareFiles[0].name}</div>` +
+          compareGroups.slice(0, 8).map(g => `
+        <div class="cmp-file">
+          <span class="cmp-sw" style="background:${g.color}"></span>
+          <span class="cmp-fn">${esc(g.label)}</span>
+        </div>`).join('') +
+          (compareGroups.length > 8 ? `<div style="font-size:7.5px;color:var(--mut2);padding:2px 7px">+${compareGroups.length - 8} more</div>` : '') +
+          `<button class="cmp-rm" data-cid="${compareFiles[0].id}" style="width:100%;margin-top:4px;font-size:7.5px;padding:3px;border-radius:4px">✕ Remove file</button>`;
+        panel.querySelectorAll('.cmp-rm').forEach(btn => btn.addEventListener('click', () => removeCompareFile(+btn.dataset.cid || compareFiles[0].id)));
+      } else {
+        filesDiv.innerHTML = compareGroups.map(g => `
+      <div class="cmp-file">
+        <span class="cmp-sw" style="background:${g.color}"></span>
+        <span class="cmp-fn">${esc(g.label)}</span>
+        <span class="cmp-rc">${g.routeCount || ''}</span>
+        <button class="cmp-rm" data-cid="${g.id}">✕</button>
+      </div>`).join('');
+        panel.querySelectorAll('.cmp-rm').forEach(btn => btn.addEventListener('click', () => removeCompareFile(+btn.dataset.cid)));
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       EXPORT .trax
+    ═══════════════════════════════════════════════════════════ */
+    function exportTrax() {
+      const visibleSports = sports.filter(s => s.visible && s.files.length);
+      if (!visibleSports.length) { toast('No visible routes to export', 'info'); return; }
+      const data = {
+        version: 2,
+        exported: new Date().toISOString(),
+        sports: visibleSports.map(s => ({
+          name: s.name, color: s.color,
+          files: s.files.map(f => ({
+            name: f.name, activityName: f.activityName, activityType: f.activityType,
+            pts: encodePts(f.pts),
+            elevs: encodeElevs(f.elevs),
+          }))
+        }))
+      };
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'myroutes.trax' });
+      a.click(); URL.revokeObjectURL(a.href);
+      toast('Exported myroutes.trax', 'ok');
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       FOCUS MODE
+    ═══════════════════════════════════════════════════════════ */
+    document.getElementById('btn-focus').addEventListener('click', () => {
+      document.getElementById('app').classList.add('focus');
+      map.invalidateSize();
+    });
+    document.getElementById('focus-exit').addEventListener('click', () => {
+      document.getElementById('app').classList.remove('focus');
+      map.invalidateSize();
+    });
+
+    /* ═══════════════════════════════════════════════════════════
+       CAPTURE / SCREENSHOT
+    ═══════════════════════════════════════════════════════════ */
+    let capCanvas = null;
+
+    async function doCapture() {
+      const wrap = document.getElementById('cap-canvas-wrap');
+      wrap.innerHTML = '<div class="cap-spinner">◎</div>';
+      const bg = document.getElementById('cap-bg').value;
+      const scale = parseInt(document.getElementById('cap-scale').value);
+      const glow = parseInt(document.getElementById('cap-glow').value);
+
+      await new Promise(r => setTimeout(r, 100)); // allow repaint
+      try {
+        const raw = await html2canvas(document.getElementById('map'), {
+          useCORS: true,
+          scale: scale,
+          backgroundColor: bg,
+          logging: false,
+        });
+
+        if (glow > 0) {
+          // Apply glow/bloom post-process on a new canvas
+          const out = document.createElement('canvas');
+          out.width = raw.width; out.height = raw.height;
+          const ctx = out.getContext('2d');
+          ctx.drawImage(raw, 0, 0);
+          ctx.filter = `blur(${glow * 3}px)`;
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = 0.35 * glow;
+          ctx.drawImage(raw, 0, 0);
+          ctx.filter = 'none';
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1;
+          capCanvas = out;
+        } else {
+          capCanvas = raw;
+        }
+
+        wrap.innerHTML = '';
+        const preview = document.createElement('canvas');
+        const maxW = wrap.offsetWidth || 480;
+        const ratio = capCanvas.width / capCanvas.height;
+        preview.width = maxW;
+        preview.height = Math.round(maxW / ratio);
+        preview.style.width = '100%';
+        preview.getContext('2d').drawImage(capCanvas, 0, 0, preview.width, preview.height);
+        wrap.appendChild(preview);
+      } catch (e) {
+        wrap.innerHTML = '<div style="color:var(--err);font-size:9px;padding:16px">Capture failed. Try disabling cross-origin blockers.</div>';
+        capCanvas = null;
+        toast('Screenshot failed', 'err');
+      }
+    }
+
+    document.getElementById('btn-capture').addEventListener('click', async () => {
+      document.getElementById('cap-overlay').classList.add('show');
+      await doCapture();
+    });
+    document.getElementById('cap-close').addEventListener('click', () => {
+      document.getElementById('cap-overlay').classList.remove('show');
+      capCanvas = null;
+    });
+    ['cap-bg', 'cap-scale', 'cap-glow'].forEach(id => {
+      document.getElementById(id).addEventListener('change', doCapture);
+    });
+    document.getElementById('cap-dl').addEventListener('click', () => {
+      if (!capCanvas) return;
+      const a = Object.assign(document.createElement('a'), { href: capCanvas.toDataURL('image/png'), download: 'trax-map.png' });
+      a.click();
+    });
+
+    /* ═══════════════════════════════════════════════════════════
+       RENDER
+    ═══════════════════════════════════════════════════════════ */
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function fmt(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n); }
+
+    function render() { renderPending(); renderSports(); updateStats(); }
+
+    function renderPending() {
+      const box = document.getElementById('pending-box');
+      if (!pending.length) { box.innerHTML = ''; return; }
+      const sportOpts = sports.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+      box.innerHTML = `
+    <div class="pb-hd">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      ${pending.length} UNASSIGNED
+    </div>
+    <div class="pb-list">
+      ${pending.map(f => `
+        <div class="pb-row">
+          <span class="pb-name" title="${esc(f.name)}">${esc(f.activityName || f.name.replace(/\.gpx$/i, ''))}</span>
+          <span class="pb-pts">${fmt(f.ptCount)}pts</span>
+          <select class="mini-sel assign-sel" data-fid="${f.id}"><option value="">Assign…</option>${sportOpts}</select>
+          <button class="mini-del file-del" data-fid="${f.id}">✕</button>
+        </div>`).join('')}
+    </div>`;
+      box.querySelectorAll('.assign-sel').forEach(sel => {
+        sel.addEventListener('change', () => { const sid = +sel.value; if (sid) assignFile(+sel.dataset.fid, sid); });
+      });
+      box.querySelectorAll('.file-del').forEach(btn => btn.addEventListener('click', () => deleteFile(+btn.dataset.fid)));
+    }
+
+    function renderSports() {
+      const scroll = document.getElementById('sb-scroll'), empty = document.getElementById('empty');
+      scroll.querySelectorAll('.sport-card').forEach(el => el.remove());
+      if (!sports.length) { empty.style.display = ''; return; }
+      empty.style.display = 'none';
+      sports.forEach(s => scroll.appendChild(buildCard(s)));
+    }
+
+    function buildCard(sport) {
+      const card = document.createElement('div');
+      card.className = 'sport-card'; card.id = 'card-' + sport.id;
+      const moveOpts = [`<option value="">Move to…</option>`, `<option value="__pending__">⚠ Unassigned</option>`,
+        ...sports.filter(s => s.id !== sport.id).map(s => `<option value="${s.id}">${esc(s.name)}</option>`)].join('');
+      const chips = sport.files.map(f => `
+    <div class="chip">
+      <span class="chip-dot" style="background:${sport.color}"></span>
+      <span class="chip-label">${chipLabel(f)}</span>
+      <span class="chip-pts">${fmt(f.pts.length)}</span>
+      <select class="mini-sel chip-assign" data-fid="${f.id}">${moveOpts}</select>
+      <button class="mini-del chip-del" data-fid="${f.id}">✕</button>
+    </div>`).join('');
+
+      card.innerHTML = `
+    <div class="sc-head">
+      <button class="sc-tog ${sport.visible ? 'on' : ''}" style="--c:${sport.color}"></button>
+      <div class="sc-dot-wrap" title="Click to change color">
+        <span class="sc-dot" style="background:${sport.color}"></span>
+        <input type="color" class="sc-color-input" value="${sport.color}">
+      </div>
+      <span class="sc-name" title="${esc(sport.name)}">${esc(sport.name)}</span>
+      <span class="sc-count">${sport.files.length} route${sport.files.length !== 1 ? 's' : ''}</span>
+      <button class="sc-del" title="Delete sport">✕</button>
+    </div>
+    <div class="sc-body">
+      <div class="dz" style="--c:${sport.color}">
+        <input type="file" accept=".gpx" multiple>
+        <div class="dz-icon" style="color:${sport.color}">↑</div>
+        <div class="dz-txt">Drop GPX here or click to assign</div>
+      </div>
+      <div class="chip-list">${chips}</div>
+    </div>`;
+
+      card.querySelector('.sc-tog').addEventListener('click', async () => {
+        sport.visible = !sport.visible;
+        card.querySelector('.sc-tog').classList.toggle('on', sport.visible);
+        if (sport.layer) { sport.visible ? sport.layer.addTo(map) : map.removeLayer(sport.layer); }
+        if (elevEnabled) scheduleElevRedraw();
+        await saveSport(sport);
+      });
+
+      const ci = card.querySelector('.sc-color-input');
+      let ct = null;
+      ci.addEventListener('input', e => {
+        sport.color = e.target.value;
+        card.querySelector('.sc-dot').style.background = sport.color;
+        card.querySelector('.sc-tog').style.setProperty('--c', sport.color);
+        card.querySelectorAll('.chip-dot').forEach(d => d.style.background = sport.color);
+        card.querySelector('.dz').style.setProperty('--c', sport.color);
+        card.querySelector('.dz-icon').style.color = sport.color;
+        clearTimeout(ct); ct = setTimeout(async () => { rebuildLayer(sport); if (elevEnabled) scheduleElevRedraw(); await saveSport(sport); }, 350);
+      });
+
+      card.querySelector('.sc-del').addEventListener('click', async () => {
+        if (sport.layer) map.removeLayer(sport.layer);
+        for (const f of sport.files) { pending.push({ ...f, ptCount: f.pts.length }); await saveFile(f, null); }
+        sports = sports.filter(s => s.id !== sport.id);
+        await IDB.del('sports', sport.id);
+        if (elevEnabled) scheduleElevRedraw();
+        render();
+      });
+
+      card.querySelector('input[type=file]').addEventListener('change', e => ingestFiles(e.target.files, sport.id));
+      const dz = card.querySelector('.dz');
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+      dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); ingestFiles(e.dataTransfer.files, sport.id); });
+      card.querySelectorAll('.chip-assign').forEach(sel => {
+        sel.addEventListener('change', () => { const v = sel.value; if (v === '__pending__') assignFile(+sel.dataset.fid, null); else if (v) assignFile(+sel.dataset.fid, +v); });
+      });
+      card.querySelectorAll('.chip-del').forEach(btn => btn.addEventListener('click', () => deleteFile(+btn.dataset.fid)));
+      return card;
+    }
+
+    function updateStats() {
+      const r = sports.reduce((a, s) => a + s.files.length, 0) + pending.length;
+      const p = sports.reduce((a, s) => a + s.files.reduce((b, f) => b + f.pts.length, 0), 0);
+      document.getElementById('sv-r').textContent = fmt(r);
+      document.getElementById('sv-p').textContent = fmt(p);
+      document.getElementById('sv-s').textContent = sports.length;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       MODAL — NEW SPORT
+    ═══════════════════════════════════════════════════════════ */
+    const PRESETS = ['#e53935', '#ff8c00', '#ffd600', '#43a047', '#1e88e5', '#7c4dff', '#ff4081', '#00acc1', '#cfd8e8', '#e91e8c'];
+    let selColor = PRESETS[0];
+    (function () {
+      const grid = document.getElementById('color-grid');
+      PRESETS.forEach((hex, i) => {
+        const b = document.createElement('button');
+        b.className = 'cp' + (i === 0 ? ' sel' : ''); b.style.background = hex;
+        b.addEventListener('click', () => { selColor = hex; grid.querySelectorAll('.cp').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); window.resetCustom && resetCustom(); });
+        grid.appendChild(b);
+      });
+      const wrap = document.createElement('div'); wrap.className = 'cp-custom'; wrap.title = 'Custom color'; wrap.innerHTML = '<input type="color" value="#ffffff">+';
+      const attach = () => { wrap.querySelector('input').addEventListener('input', e => { selColor = e.target.value; wrap.style.background = selColor; wrap.style.borderStyle = 'solid'; wrap.style.borderColor = '#fff';[...wrap.childNodes].filter(n => n.nodeType === 3).forEach(n => n.textContent = ''); grid.querySelectorAll('.cp').forEach(x => x.classList.remove('sel')); }); };
+      attach(); grid.appendChild(wrap);
+      window.resetCustom = () => { wrap.style.background = wrap.style.borderStyle = wrap.style.borderColor = ''; wrap.innerHTML = '<input type="color" value="#ffffff">+'; attach(); };
+    })();
+
+    function openModal() { selColor = PRESETS[0]; document.getElementById('inp-name').value = ''; document.getElementById('inp-name').classList.remove('err'); document.getElementById('color-grid').querySelectorAll('.cp').forEach((b, i) => b.classList.toggle('sel', i === 0)); resetCustom(); document.getElementById('overlay').classList.add('show'); setTimeout(() => document.getElementById('inp-name').focus(), 80); }
+    function closeModal() { document.getElementById('overlay').classList.remove('show'); }
+    async function confirmModal() {
+      const inp = document.getElementById('inp-name'), name = inp.value.trim();
+      if (!name) { inp.classList.add('err'); inp.focus(); setTimeout(() => inp.classList.remove('err'), 900); return; }
+      const sp = { id: uid(), name, color: selColor, visible: true, _ruleKey: null, files: [], layer: null };
+      sports.push(sp); await saveSport(sp); closeModal(); render();
+    }
+
+    document.getElementById('add-btn').addEventListener('click', openModal);
+    document.getElementById('btn-cancel').addEventListener('click', closeModal);
+    document.getElementById('btn-ok').addEventListener('click', confirmModal);
+    document.getElementById('inp-name').addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); if (e.key === 'Escape') closeModal(); });
+    document.getElementById('overlay').addEventListener('click', e => { if (e.target === document.getElementById('overlay')) closeModal(); });
+
+    /* ═══════════════════════════════════════════════════════════
+       EVENT WIRING
+    ═══════════════════════════════════════════════════════════ */
+    const gDz = document.getElementById('global-dz');
+    document.getElementById('global-input').addEventListener('change', e => ingestFiles(e.target.files, null));
+    gDz.addEventListener('dragover', e => { e.preventDefault(); gDz.classList.add('over'); });
+    gDz.addEventListener('dragleave', () => gDz.classList.remove('over'));
+    gDz.addEventListener('drop', e => { e.preventDefault(); gDz.classList.remove('over'); ingestFiles(e.dataTransfer.files, null); });
+
+    document.getElementById('btn-export').addEventListener('click', exportTrax);
+    document.getElementById('btn-elev').addEventListener('click', toggleElevation);
+    document.getElementById('btn-compare').addEventListener('click', () => document.getElementById('compare-input').click());
+    document.getElementById('compare-input').addEventListener('change', e => { [...e.target.files].forEach(importTrax); e.target.value = ''; });
+    document.getElementById('cmp-add-input').addEventListener('change', e => { [...e.target.files].forEach(importTrax); e.target.value = ''; });
+    document.getElementById('cmp-exit').addEventListener('click', exitCompare);
+
+    /* ═══════════════════════════════════════════════════════════
+       INIT
+    ═══════════════════════════════════════════════════════════ */
+    (async () => {
+      try {
+        loadingStart('Loading saved data…');
+        await loadAll();
+        loadingDone();
+      } catch (e) {
+        loadingDone();
+        toast('Could not load saved routes: ' + e.message, 'err');
+        console.error(e);
+      }
+      renderCompare();
+      render();
+      if (sports.some(s => s.files.length) || pending.length)
+        document.getElementById('hint').style.opacity = '0';
+    })();
+  </script>
+</body>
+
+</html>
