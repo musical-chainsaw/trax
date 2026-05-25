@@ -1780,10 +1780,10 @@ self.onmessage = function(e) {
        HEATMAP LAYERS (zoom-adaptive, ultra-low blur)
     ═══════════════════════════════════════════════════════════ */
     function heatOpts(zoom) {
-      if (zoom <= 8) return { radius: 3, blur: 2 };
-      if (zoom <= 16) return { radius: 3, blur: 2 };
-      if (zoom <= 30) return { radius: 3, blur: 1 };
-      return { radius: 3, blur: 1 };
+      if (zoom <= 8) return { radius: 3, blur: 3 };
+      if (zoom <= 16) return { radius: 2, blur: 2 };
+      if (zoom <= 30) return { radius: 2, blur: 2 };
+      return { radius: 2, blur: 1 };
     }
     function hex2rgb(h) {
       const n = parseInt(h.replace('#', ''), 16);
