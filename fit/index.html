@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FIT → GPX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0c0e;
+      --surface: #12161e;
+      --surface2: #161b26;
+      --border: #272b33;
+      --text: #dde2ea;
+      --muted: #555c6b;
+      --muted2: #3a4050;
+      --accent: #4dffb4;
+      --accent-dim: rgba(77, 255, 180, 0.07);
+      --accent-glow: rgba(77, 255, 180, 0.18);
+      --error: #ff5a72;
+      --warn: #ffb84d;
+
+
+            --bg: #07090d;
+      --sb: #0c0f15;
+      --card: #12161e;
+      --card2: #161b26;
+      --bd: rgba(255, 255, 255, .055);
+      --bdh: rgba(255, 255, 255, .13);
+      --text: #dde3f0;
+      --mut: #3d4a5c;
+      --mut2: #5a6a80;
+      --warn: #ffb74d;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Azeret Mono', 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 52px 20px 80px;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 660px;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      margin-bottom: 44px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: clamp(36px, 8vw, 52px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    h1 .arrow {
+      color: var(--accent);
+      font-style: italic;
+      font-weight: 300;
+    }
+
+    .subtitle {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 300;
+      line-height: 1.7;
+      max-width: 440px;
+    }
+
+    .dropzone {
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      padding: 52px 32px 44px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+      background: var(--surface);
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dropzone::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 100%, var(--accent-glow), transparent 70%);
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+    }
+
+    .dropzone:hover,
+    .dropzone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .dropzone:hover::after,
+    .dropzone.drag-over::after {
+      opacity: 1;
+    }
+
+    .dz-icon {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 20px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: var(--surface2);
+      transition: border-color .2s;
+    }
+
+    .dropzone:hover .dz-icon,
+    .dropzone.drag-over .dz-icon {
+      border-color: var(--accent);
+    }
+
+    .dz-title {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .dz-sub {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    .dz-sub .link {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+
+    .file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+
+    .file-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 10px 1fr auto auto;
+      align-items: center;
+      gap: 12px;
+      animation: appear .18s ease both;
+      transition: border-color .2s;
+    }
+
+    .file-item.done {
+      border-color: rgba(77, 255, 180, .22);
+    }
+
+    .file-item.error {
+      border-color: rgba(255, 90, 114, .22);
+    }
+
+    @keyframes appear {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot.pending {
+      background: var(--muted2);
+    }
+
+    .dot.converting {
+      background: var(--warn);
+      animation: blink .9s ease-in-out infinite;
+    }
+
+    .dot.done {
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    .dot.error {
+      background: var(--error);
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .25
+      }
+    }
+
+    .file-name {
+      font-size: 12.5px;
+      font-weight: 400;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-size {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .file-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: none;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .file-action:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .file-err-label {
+      font-size: 11px;
+      color: var(--error);
+      white-space: nowrap;
+      cursor: help;
+    }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 0 2px;
+      margin-bottom: 18px;
+    }
+
+    .stats strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 10px 22px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all .15s;
+      letter-spacing: .03em;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+    }
+
+    .btn-primary:hover {
+      opacity: .85;
+    }
+
+    .btn-primary:active {
+      transform: scale(.97);
+    }
+
+    .btn-primary:disabled {
+      opacity: .3;
+      cursor: not-allowed;
+    }
+
+    .btn-outline {
+      background: none;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-outline:hover:not(:disabled) {
+      border-color: var(--text);
+      color: var(--text);
+    }
+
+    .btn-outline:disabled {
+      opacity: .3;
+      cursor: not-allowed;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .note {
+      margin-top: 48px;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 300;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    .note span {
+      color: var(--accent);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Garmin · Wahoo · Polar · Coros</div>
+      <h1>FIT<span class="arrow"> → </span>GPX</h1>
+      <p class="subtitle">
+        Convert .fit activity files to .gpx — preserving GPS track, elevation,
+        heart rate, cadence &amp; power. Runs entirely in your browser.
+      </p>
+    </header>
+
+    <div class="dropzone" id="dropzone">
+      <div class="dz-icon">📁</div>
+      <div class="dz-title">Drop .fit files here</div>
+      <div class="dz-sub">or <span class="link" id="browseBtn">browse files</span> to select</div>
+    </div>
+    <input type="file" id="fileInput" accept=".fit" multiple>
+
+    <div class="file-list" id="fileList"></div>
+    <div class="stats" id="stats" style="display:none"></div>
+    <div class="actions" id="actions" style="display:none">
+      <button class="btn btn-primary" id="convertAllBtn">Convert all</button>
+      <button class="btn btn-outline" id="downloadZipBtn" disabled>↓ Download .zip</button>
+      <span class="spacer"></span>
+      <button class="btn btn-outline" id="clearBtn">Clear</button>
+    </div>
+
+    <p class="note">
+      All processing happens locally — <span>no files are uploaded anywhere</span>.<br>
+      Supports GPS tracks with optional HR, cadence, power &amp; temperature data.
+    </p>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════
+    //  EMBEDDED FIT BINARY PARSER
+    //  Parses FIT record messages (global msg #20) directly from
+    //  an ArrayBuffer — no external library needed.
+    // ═══════════════════════════════════════════════════════════
+
+    const FIT_EPOCH_MS = 631065600000; // 1989-12-31T00:00:00Z in Unix ms
+    const SEMI_TO_DEG = 180 / 2147483648; // 180 / 2^31
+
+    /**
+     * Parse a .fit ArrayBuffer and return an array of record objects.
+     * Each record may have: timestamp, position_lat, position_long,
+     * altitude, heart_rate, cadence, power, temperature, speed.
+     */
+    function parseFIT(arrayBuffer) {
+      const bytes = new Uint8Array(arrayBuffer);
+      const view = new DataView(arrayBuffer);
+
+      if (bytes.length < 12) throw new Error('File too small');
+
+      const headerSize = bytes[0];
+      const magic = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+      if (magic !== '.FIT') throw new Error('Not a valid .FIT file — missing signature');
+
+      const dataSize = view.getUint32(4, true);
+      const dataEnd = Math.min(headerSize + dataSize, bytes.length);
+
+      const localDefs = {}; // localMsgType (0-15) → definition
+      const records = [];
+      let pos = headerSize;
+
+      while (pos < dataEnd) {
+        if (pos >= bytes.length) break;
+        const recHdr = bytes[pos++];
+
+        // ── Compressed timestamp header (bit 7 set) ──────────
+        if (recHdr & 0x80) {
+          const localType = (recHdr >> 5) & 0x03;
+          const def = localDefs[localType];
+          if (!def) continue;
+          if (def.globalMsgNum === 20) {
+            records.push(readRecord(view, pos, def));
+          }
+          pos += def.totalSize;
+          continue;
+        }
+
+        const isDef = !!(recHdr & 0x40);
+        const hasDevData = !!(recHdr & 0x20);
+        const localType = recHdr & 0x0F;
+
+        if (isDef) {
+          // ── Definition message ──────────────────────────────
+          pos++;                                              // reserved
+          const bigEndian = bytes[pos++] === 1;
+          const globalMsgNum = view.getUint16(pos, !bigEndian);
+          pos += 2;
+          const nFields = bytes[pos++];
+
+          const fields = [];
+          let totalSize = 0;
+
+          for (let i = 0; i < nFields; i++) {
+            const fNum = bytes[pos++];
+            const fSize = bytes[pos++];
+            const bType = bytes[pos++];
+            // Signed types: sint8=0x01, sint16=0x83, sint32=0x85, sint64=0x8B
+            const isSigned = (bType === 0x01 || bType === 0x83 || bType === 0x85 || bType === 0x8B);
+            const isFloat = (bType === 0x8D || bType === 0x8E);
+            fields.push({ fNum, fSize, isSigned, isFloat });
+            totalSize += fSize;
+          }
+
+          // Developer data fields — skip definitions but track total byte size
+          if (hasDevData) {
+            const nDev = bytes[pos++];
+            for (let i = 0; i < nDev; i++) {
+              pos++;                      // field number
+              const sz = bytes[pos++];    // size
+              pos++;                      // dev data index
+              totalSize += sz;
+            }
+          }
+
+          localDefs[localType] = { globalMsgNum, bigEndian, fields, totalSize };
+
+        } else {
+          // ── Data message ────────────────────────────────────
+          const def = localDefs[localType];
+          if (!def) break; // no definition — file may be corrupt
+
+          if (def.globalMsgNum === 20) {
+            records.push(readRecord(view, pos, def));
+          }
+          pos += def.totalSize;
+        }
+      }
+
+      return records;
+    }
+
+    /** Read one record data message into a plain object. */
+    function readRecord(view, startPos, def) {
+      const le = !def.bigEndian;
+      let pos = startPos;
+      const r = {};
+
+      for (const { fNum, fSize, isSigned, isFloat } of def.fields) {
+        let raw = null;
+
+        try {
+          if (fSize === 1) {
+            raw = isSigned ? view.getInt8(pos) : view.getUint8(pos);
+          } else if (fSize === 2) {
+            raw = isSigned ? view.getInt16(pos, le) : view.getUint16(pos, le);
+          } else if (fSize === 4) {
+            raw = isFloat ? view.getFloat32(pos, le)
+              : isSigned ? view.getInt32(pos, le)
+                : view.getUint32(pos, le);
+          } else if (fSize === 8 && isFloat) {
+            raw = view.getFloat64(pos, le);
+          }
+        } catch (_) { /* bounds check */ }
+
+        pos += fSize;
+        if (raw == null) continue;
+
+        // Skip FIT "invalid" sentinel values
+        if (!isFloat) {
+          if (fSize === 1 && !isSigned && raw === 0xFF) continue;
+          if (fSize === 1 && isSigned && raw === 0x7F) continue;
+          if (fSize === 2 && !isSigned && raw === 0xFFFF) continue;
+          if (fSize === 2 && isSigned && raw === 0x7FFF) continue;
+          if (fSize === 4 && !isSigned && raw === 0xFFFFFFFF) continue;
+          if (fSize === 4 && isSigned && raw === 0x7FFFFFFF) continue;
+        }
+
+        // ── Map known record-message fields (global msg 20) ──
+        switch (fNum) {
+          // timestamp: uint32, seconds since FIT epoch (1989-12-31)
+          case 253: r.timestamp = new Date(raw * 1000 + FIT_EPOCH_MS); break;
+          // position: sint32, semicircles → convert to degrees
+          case 0: r.position_lat = raw * SEMI_TO_DEG; break;
+          case 1: r.position_long = raw * SEMI_TO_DEG; break;
+          // altitude: uint16, scale=5 offset=500 → metres
+          case 2: r.altitude = raw / 5 - 500; break;
+          // enhanced_altitude: uint32, same formula, higher precision
+          case 78: r.altitude = raw / 5 - 500; break;
+          // metrics (no scaling needed)
+          case 3: r.heart_rate = raw; break;
+          case 4: r.cadence = raw; break;
+          case 7: r.power = raw; break;
+          case 13: r.temperature = raw; break;
+          // speed: uint16, scale=1000, m/s
+          case 6: r.speed = raw / 1000; break;
+        }
+      }
+
+      return r;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  GPX BUILDER
+    // ═══════════════════════════════════════════════════════════
+
+    function buildGPX(records, trackName) {
+      const gpsRecords = records.filter(
+        r => r.position_lat != null && r.position_long != null
+      );
+
+      if (gpsRecords.length === 0) {
+        throw new Error('No GPS data found in this file');
+      }
+
+      const trkpts = gpsRecords.map(r => {
+        const lat = r.position_lat.toFixed(7);
+        const lon = r.position_long.toFixed(7);
+
+        let inner = '';
+        if (r.altitude != null) inner += `\n        <ele>${r.altitude.toFixed(2)}</ele>`;
+        if (r.timestamp) inner += `\n        <time>${r.timestamp.toISOString()}</time>`;
+
+        const ext = [];
+        if (r.heart_rate != null) ext.push(`<gpxtpx:hr>${r.heart_rate}</gpxtpx:hr>`);
+        if (r.cadence != null) ext.push(`<gpxtpx:cad>${r.cadence}</gpxtpx:cad>`);
+        if (r.temperature != null) ext.push(`<gpxtpx:atemp>${r.temperature}</gpxtpx:atemp>`);
+        if (r.power != null) ext.push(`<power>${r.power}</power>`);
+        if (ext.length) {
+          inner += `\n        <extensions><gpxtpx:TrackPointExtension>${ext.join('')}</gpxtpx:TrackPointExtension></extensions>`;
+        }
+
+        return `      <trkpt lat="${lat}" lon="${lon}">${inner}\n      </trkpt>`;
+      }).join('\n');
+
+      return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="FIT→GPX Converter"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <trk>
+    <name>${escXml(trackName)}</name>
+    <trkseg>
+${trkpts}
+    </trkseg>
+  </trk>
+</gpx>`;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  UI
+    // ═══════════════════════════════════════════════════════════
+
+    const files = [];
+    let nextId = 0;
+
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const browseBtn = document.getElementById('browseBtn');
+    const fileListEl = document.getElementById('fileList');
+    const statsEl = document.getElementById('stats');
+    const actionsEl = document.getElementById('actions');
+    const convertAllBtn = document.getElementById('convertAllBtn');
+    const downloadZipBtn = document.getElementById('downloadZipBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+      addFiles([...e.dataTransfer.files]);
+    });
+    dropzone.addEventListener('click', () => fileInput.click());
+    browseBtn.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+    fileInput.addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
+
+    function addFiles(incoming) {
+      incoming
+        .filter(f => f.name.toLowerCase().endsWith('.fit'))
+        .forEach(f => files.push({
+          id: ++nextId, name: f.name, size: f.size,
+          file: f, status: 'pending', gpxContent: null, error: null
+        }));
+      render();
+    }
+
+    function fmtSize(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+      return (b / 1048576).toFixed(1) + ' MB';
+    }
+
+    function render() {
+      fileListEl.innerHTML = '';
+
+      files.forEach(f => {
+        const item = document.createElement('div');
+        item.className = `file-item ${f.status}`;
+
+        let right = '';
+        if (f.status === 'done') {
+          right = `<a class="file-action" data-id="${f.id}" href="#">↓ .gpx</a>`;
+        } else if (f.status === 'error') {
+          right = `<span class="file-err-label" title="${escHtml(f.error)}">✗ error</span>`;
+        } else {
+          right = `<span></span>`;
+        }
+
+        item.innerHTML = `
+      <div class="dot ${f.status}"></div>
+      <span class="file-name" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
+      <span class="file-size">${fmtSize(f.size)}</span>
+      ${right}
+    `;
+
+        if (f.status === 'done') {
+          item.querySelector('[data-id]').addEventListener('click', e => {
+            e.preventDefault();
+            downloadSingle(f);
+          });
+        }
+
+        fileListEl.appendChild(item);
+      });
+
+      const total = files.length;
+      const done = files.filter(f => f.status === 'done').length;
+      const errors = files.filter(f => f.status === 'error').length;
+
+      statsEl.style.display = total ? 'flex' : 'none';
+      actionsEl.style.display = total ? 'flex' : 'none';
+
+      statsEl.innerHTML = `
+    <span>Files: <strong>${total}</strong></span>
+    <span>Converted: <strong>${done}</strong></span>
+    ${errors ? `<span style="color:var(--error)">Errors: <strong>${errors}</strong></span>` : ''}
+  `;
+
+      convertAllBtn.disabled = !files.some(f => f.status === 'pending');
+      downloadZipBtn.disabled = done === 0;
+    }
+
+    function doConvert(fileObj) {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          try {
+            const records = parseFIT(e.target.result);
+            fileObj.gpxContent = buildGPX(records, fileObj.name.replace(/\.fit$/i, ''));
+            fileObj.status = 'done';
+          } catch (err) {
+            fileObj.status = 'error';
+            fileObj.error = err.message;
+          }
+          resolve();
+        };
+        reader.onerror = () => {
+          fileObj.status = 'error';
+          fileObj.error = 'Could not read file';
+          resolve();
+        };
+        reader.readAsArrayBuffer(fileObj.file);
+      });
+    }
+
+    convertAllBtn.addEventListener('click', async () => {
+      convertAllBtn.disabled = true;
+      for (const f of files.filter(f => f.status === 'pending')) {
+        f.status = 'converting';
+        render();
+        await doConvert(f);
+        render();
+      }
+      convertAllBtn.disabled = false;
+      render();
+    });
+
+    downloadZipBtn.addEventListener('click', async () => {
+      downloadZipBtn.disabled = true;
+      downloadZipBtn.textContent = '⏳ Zipping…';
+      try {
+        const zip = new JSZip();
+        files.filter(f => f.status === 'done').forEach(f => {
+          zip.file(f.name.replace(/\.fit$/i, '.gpx'), f.gpxContent);
+        });
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        triggerDownload(blob, 'gpx-activities.zip');
+      } finally {
+        downloadZipBtn.textContent = '↓ Download .zip';
+        downloadZipBtn.disabled = false;
+      }
+    });
+
+    clearBtn.addEventListener('click', () => { files.length = 0; render(); });
+
+    function downloadSingle(f) {
+      const blob = new Blob([f.gpxContent], { type: 'application/gpx+xml' });
+      triggerDownload(blob, f.name.replace(/\.fit$/i, '.gpx'));
+    }
+
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function escXml(s) { return escHtml(s); }
+  </script>
+</body>
+
+</html>
