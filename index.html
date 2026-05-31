@@ -1304,23 +1304,10 @@ self.onmessage = function(e) {
         <div class="logo-sub">GPX HEATMAP VISUALIZER</div>
         <div class="head-row">
           <a href="howto" target="_blank"><button class="hbtn">TUTORIAL</button></a>
+          <a href="fit" target="_blank"><button class="hbtn">CONVERT</button></a>
 
-          <button class="hbtn" id="btn-export" title="Export visible routes as .trax">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            EXPORT
-          </button>
-          <button class="hbtn" id="btn-compare" title="Import .trax for comparison">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="18" cy="18" r="3" />
-              <circle cx="6" cy="6" r="3" />
-              <path d="M6 21V9a9 9 0 009 9" />
-            </svg>
-            COMPARE
-          </button>
+          <button class="hbtn" id="btn-export" title="Export visible routes as .trax">EXPORT</button>
+          <button class="hbtn" id="btn-compare" title="Import .trax for comparison">COMPARE</button>
           <input type="file" id="compare-input" accept=".trax" multiple style="display:none">
         </div>
       </div>
@@ -1348,6 +1335,7 @@ self.onmessage = function(e) {
           <div class="gdz-sub">Sport detected from file content</div>
         </div>
       </div>
+      <p style="font-size: 12px; padding-left: 18px; background-color: var(--mut); border-radius: 4px; margin-left: 12px; margin-right: 12.5%;">Import routes above.</p>
 
       <div id="pending-box"></div>
       <div id="sb-scroll">
