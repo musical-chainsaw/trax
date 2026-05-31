@@ -4,37 +4,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FIT → GPX</title>
+  <title>FIT Toolkit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap"
     rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     :root {
-      --bg: #0b0c0e;
-      --surface: #12161e;
-      --surface2: #161b26;
-      --border: #272b33;
-      --text: #dde2ea;
-      --muted: #555c6b;
-      --muted2: #3a4050;
-      --accent: #4dffb4;
-      --accent-dim: rgba(77, 255, 180, 0.07);
-      --accent-glow: rgba(77, 255, 180, 0.18);
-      --error: #ff5a72;
-      --warn: #ffb84d;
-
-
-            --bg: #07090d;
-      --sb: #0c0f15;
+      --bg: #07090d;
       --card: #12161e;
       --card2: #161b26;
       --bd: rgba(255, 255, 255, .055);
-      --bdh: rgba(255, 255, 255, .13);
       --text: #dde3f0;
       --mut: #3d4a5c;
       --mut2: #5a6a80;
+      --accent: #4dffb4;
+      --accenthalf: #99ffd56e;
+      --accent-dim: rgba(77, 255, 180, .06);
+      --accent-glow: rgba(77, 255, 180, .18);
+      --error: #ff5a72;
+      --error-dim: rgba(255, 90, 114, .08);
       --warn: #ffb74d;
+      --warn-dim: rgba(255, 183, 77, .08);
     }
 
     *,
@@ -42,7 +33,7 @@
     *::after {
       box-sizing: border-box;
       margin: 0;
-      padding: 0;
+      padding: 0
     }
 
     body {
@@ -54,71 +45,288 @@
       flex-direction: column;
       align-items: center;
       padding: 52px 20px 80px;
+      overflow-x: hidden;
     }
 
     body::before {
       content: '';
       position: fixed;
       inset: 0;
-      background-image: radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+      background-image: radial-gradient(circle, rgba(255, 255, 255, .042) 1px, transparent 1px);
       background-size: 28px 28px;
       pointer-events: none;
       z-index: 0;
     }
 
-    .container {
+    .wrapper {
       width: 100%;
       max-width: 660px;
       position: relative;
       z-index: 1;
     }
 
-    header {
-      margin-bottom: 44px;
+    /* ── Screens ──────────────────────────────────── */
+    .screen {
+      display: none
     }
 
+    .screen.in {
+      display: block;
+      animation: scr-in .32s cubic-bezier(.22, 1, .36, 1) both
+    }
+
+    .screen.out {
+      display: block;
+      animation: scr-out .24s ease both
+    }
+
+    @keyframes scr-in {
+      from {
+        opacity: 0;
+        transform: translateY(18px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    @keyframes scr-out {
+      from {
+        opacity: 1;
+        transform: translateY(0)
+      }
+
+      to {
+        opacity: 0;
+        transform: translateY(-12px)
+      }
+    }
+
+    /* ── Common chrome ────────────────────────────── */
     .badge {
       display: inline-block;
       font-size: 10px;
-      letter-spacing: 0.18em;
+      letter-spacing: .18em;
       text-transform: uppercase;
-      color: var(--muted);
-      border: 1px solid var(--border);
+      color: var(--mut2);
+      border: 1px solid var(--bd);
       border-radius: 20px;
       padding: 4px 12px;
       margin-bottom: 18px;
     }
 
+    header {
+      margin-bottom: 44px
+    }
+
     h1 {
       font-size: clamp(36px, 8vw, 52px);
       font-weight: 700;
-      letter-spacing: -0.03em;
+      letter-spacing: -.03em;
       line-height: 1;
     }
 
-    h1 .arrow {
+    h1 .ital {
       color: var(--accent);
       font-style: italic;
-      font-weight: 300;
+      font-weight: 300
     }
 
     .subtitle {
       margin-top: 14px;
       font-size: 12px;
-      color: var(--muted);
+      color: var(--mut2);
       font-weight: 300;
       line-height: 1.7;
       max-width: 440px;
     }
 
+    /* ── Mode cards ───────────────────────────────── */
+    .mode-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px
+    }
+
+    .mode-card {
+      background: var(--card);
+      border: 1.5px solid var(--bd);
+      border-radius: 10px;
+      padding: 20px 22px;
+      display: grid;
+      grid-template-columns: 44px 1fr 22px;
+      align-items: center;
+      gap: 16px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, transform .18s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mode-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at -10% 50%, var(--accent-glow), transparent 55%);
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+    }
+
+    .mode-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      transform: translateX(5px);
+    }
+
+    .mode-card:hover::before {
+      opacity: 1
+    }
+
+    .mode-card:active {
+      transform: translateX(5px) scale(.99)
+    }
+
+    .mc-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--card2);
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 19px;
+      transition: border-color .2s;
+      flex-shrink: 0;
+    }
+
+    .mode-card:hover .mc-icon {
+      border-color: var(--accent)
+    }
+
+    .mc-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      margin-bottom: 5px;
+    }
+
+    .mc-title .from {
+      color: var(--mut2)
+    }
+
+    .mc-title .sep {
+      color: var(--accent);
+      font-style: italic;
+      font-weight: 300
+    }
+
+    .mc-title .to {
+      color: var(--text)
+    }
+
+    .mc-desc {
+      font-size: 11px;
+      color: var(--mut2);
+      font-weight: 300;
+      line-height: 1.55
+    }
+
+    .mc-arrow {
+      font-size: 15px;
+      color: var(--mut);
+      transition: color .2s, transform .2s;
+      text-align: center;
+    }
+
+    .mode-card:hover .mc-arrow {
+      color: var(--accent);
+      transform: translateX(4px)
+    }
+
+    /* ── Convert screen header ────────────────────── */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: none;
+      border: none;
+      color: var(--mut2);
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0;
+      margin-bottom: 24px;
+      letter-spacing: .05em;
+      transition: color .2s;
+    }
+
+    .back-btn:hover {
+      color: var(--text)
+    }
+
+    .back-btn .ba {
+      transition: transform .2s
+    }
+
+    .back-btn:hover .ba {
+      transform: translateX(-3px)
+    }
+
+    .conv-head {
+      margin-bottom: 10px
+    }
+
+    .conv-title {
+      font-size: clamp(28px, 7vw, 44px);
+      font-weight: 700;
+      letter-spacing: -.03em;
+      line-height: 1;
+      display: inline;
+    }
+
+    .conv-title .from {
+      color: var(--mut2)
+    }
+
+    .conv-title .sep {
+      color: var(--accent);
+      font-style: italic;
+      font-weight: 300
+    }
+
+    .conv-title .to {
+      color: var(--text)
+    }
+
+    .mode-tag {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(77, 255, 180, .22);
+      border-radius: 20px;
+      padding: 3px 10px;
+      margin-left: 12px;
+      vertical-align: middle;
+      position: relative;
+      top: -3px;
+    }
+
+    /* ── Dropzone ─────────────────────────────────── */
     .dropzone {
-      border: 1.5px dashed var(--border);
+      border: 1.5px dashed var(--bd);
       border-radius: 10px;
       padding: 52px 32px 44px;
       text-align: center;
       cursor: pointer;
-      transition: border-color .2s, background .2s, box-shadow .2s;
-      background: var(--surface);
+      transition: border-color .2s, background .2s;
+      background: var(--card);
       margin-bottom: 20px;
       position: relative;
       overflow: hidden;
@@ -128,7 +336,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse at 50% 100%, var(--accent-glow), transparent 70%);
+      background: radial-gradient(ellipse at 50% 110%, var(--accent-glow), transparent 65%);
       opacity: 0;
       transition: opacity .3s;
       pointer-events: none;
@@ -142,38 +350,38 @@
 
     .dropzone:hover::after,
     .dropzone.drag-over::after {
-      opacity: 1;
+      opacity: 1
     }
 
     .dz-icon {
       width: 44px;
       height: 44px;
       margin: 0 auto 20px;
-      border: 1.5px solid var(--border);
+      border: 1.5px solid var(--bd);
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 20px;
-      background: var(--surface2);
+      background: var(--card2);
       transition: border-color .2s;
     }
 
     .dropzone:hover .dz-icon,
     .dropzone.drag-over .dz-icon {
-      border-color: var(--accent);
+      border-color: var(--accent)
     }
 
     .dz-title {
       font-size: 14px;
       font-weight: 500;
-      margin-bottom: 8px;
+      margin-bottom: 8px
     }
 
     .dz-sub {
       font-size: 12px;
-      color: var(--muted);
-      font-weight: 300;
+      color: var(--mut2);
+      font-weight: 300
     }
 
     .dz-sub .link {
@@ -183,95 +391,203 @@
       cursor: pointer;
     }
 
+    /* ── File list ────────────────────────────────── */
     .file-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      margin-bottom: 20px;
+      margin-bottom: 20px
     }
 
     .file-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--card);
+      border: 1px solid var(--bd);
       border-radius: 7px;
       padding: 12px 14px;
       display: grid;
       grid-template-columns: 10px 1fr auto auto;
       align-items: center;
       gap: 12px;
-      animation: appear .18s ease both;
-      transition: border-color .2s;
+      position: relative;
+      overflow: hidden;
+      animation: appear .2s cubic-bezier(.22, 1, .36, 1) both;
     }
 
+    /* Status border colors */
     .file-item.done {
-      border-color: rgba(77, 255, 180, .22);
+      border-color: rgba(77, 255, 180, .25)
+    }
+
+    .file-item.converting {
+      border-color: rgba(255, 183, 77, .2)
     }
 
     .file-item.error {
-      border-color: rgba(255, 90, 114, .22);
+      border-color: rgba(255, 90, 114, .25)
+    }
+
+    /* Shimmer on converting rows */
+    .file-item.converting::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(90deg,
+          transparent 0%,
+          var(--warn-dim) 38%,
+          rgba(255, 183, 77, .18) 50%,
+          var(--warn-dim) 62%,
+          transparent 100%);
+      background-size: 300% 100%;
+      animation: shimmer 1.6s linear infinite;
+    }
+
+    /* Subtle success wash */
+    .file-item.done::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(90deg, rgba(77, 255, 180, .04) 0%, transparent 40%);
+      pointer-events: none;
+    }
+
+    /* Error shake */
+    .file-item.error {
+      animation: appear .2s cubic-bezier(.22, 1, .36, 1) both, shake .4s ease .15s both
     }
 
     @keyframes appear {
       from {
         opacity: 0;
-        transform: translateY(-5px);
+        transform: translateY(-6px)
       }
 
       to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0)
       }
     }
 
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0)
+      }
+
+      18%,
+      54% {
+        transform: translateX(-5px)
+      }
+
+      36%,
+      72% {
+        transform: translateX(5px)
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: 160% 0
+      }
+
+      100% {
+        background-position: -160% 0
+      }
+    }
+
+    /* ── Status dots ──────────────────────────────── */
     .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
+      position: relative;
+      z-index: 1;
     }
 
     .dot.pending {
-      background: var(--muted2);
+      background: var(--mut)
     }
 
     .dot.converting {
       background: var(--warn);
-      animation: blink .9s ease-in-out infinite;
+      animation: dot-pulse 1.1s ease-in-out infinite;
     }
 
     .dot.done {
       background: var(--accent);
-      box-shadow: 0 0 6px var(--accent-glow);
+      box-shadow: 0 0 0 0 rgba(77, 255, 180, .6);
+      animation: dot-pop .3s cubic-bezier(.22, 1, .36, 1) both, dot-ring 1.6s ease .3s both;
     }
 
     .dot.error {
       background: var(--error);
+      animation: dot-pop .25s cubic-bezier(.22, 1, .36, 1) both;
     }
 
-    @keyframes blink {
+    @keyframes dot-pulse {
 
       0%,
       100% {
+        transform: scale(1);
         opacity: 1
       }
 
       50% {
-        opacity: .25
+        transform: scale(1.65);
+        opacity: .5
       }
     }
 
+    @keyframes dot-pop {
+      0% {
+        transform: scale(0);
+        opacity: 0
+      }
+
+      60% {
+        transform: scale(1.4)
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1
+      }
+    }
+
+    @keyframes dot-ring {
+      0% {
+        box-shadow: 0 0 0 0 rgba(77, 255, 180, .6)
+      }
+
+      70% {
+        box-shadow: 0 0 0 6px rgba(77, 255, 180, 0)
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(77, 255, 180, 0)
+      }
+    }
+
+    /* ── File item text ───────────────────────────── */
     .file-name {
       font-size: 12.5px;
       font-weight: 400;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      position: relative;
+      z-index: 1;
     }
 
     .file-size {
       font-size: 11px;
-      color: var(--muted);
+      color: var(--mut2);
       white-space: nowrap;
+      position: relative;
+      z-index: 1;
     }
 
     .file-action {
@@ -287,41 +603,58 @@
       border-radius: 5px;
       cursor: pointer;
       transition: background .15s, color .15s;
-      text-decoration: none;
       white-space: nowrap;
+      position: relative;
+      z-index: 1;
+      animation: btn-in .25s cubic-bezier(.22, 1, .36, 1) both;
     }
 
     .file-action:hover {
       background: var(--accent);
-      color: var(--bg);
+      color: var(--bg)
     }
 
-    .file-err-label {
+    @keyframes btn-in {
+      from {
+        opacity: 0;
+        transform: scale(.85)
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1)
+      }
+    }
+
+    .file-err {
       font-size: 11px;
       color: var(--error);
       white-space: nowrap;
       cursor: help;
+      position: relative;
+      z-index: 1;
     }
 
+    /* ── Stats + Actions ──────────────────────────── */
     .stats {
       display: flex;
       gap: 20px;
       font-size: 11px;
-      color: var(--muted);
+      color: var(--mut2);
       padding: 0 2px;
       margin-bottom: 18px;
     }
 
     .stats strong {
       color: var(--text);
-      font-weight: 500;
+      font-weight: 500
     }
 
     .actions {
       display: flex;
       gap: 10px;
       align-items: center;
-      flex-wrap: wrap;
+      flex-wrap: wrap
     }
 
     .btn {
@@ -339,138 +672,206 @@
     .btn-primary {
       background: var(--accent);
       color: var(--bg);
-      border: none;
+      border: none
     }
 
     .btn-primary:hover {
-      opacity: .85;
+      opacity: .85
     }
 
     .btn-primary:active {
-      transform: scale(.97);
+      transform: scale(.97)
     }
 
     .btn-primary:disabled {
       opacity: .3;
-      cursor: not-allowed;
+      cursor: not-allowed
     }
 
     .btn-outline {
       background: none;
-      color: var(--muted);
-      border: 1px solid var(--border);
+      color: var(--mut2);
+      border: 1px solid var(--bd)
     }
 
     .btn-outline:hover:not(:disabled) {
       border-color: var(--text);
-      color: var(--text);
+      color: var(--text)
     }
 
     .btn-outline:disabled {
       opacity: .3;
-      cursor: not-allowed;
+      cursor: not-allowed
     }
 
     .spacer {
-      flex: 1;
+      flex: 1
     }
 
     #fileInput {
-      display: none;
+      display: none
     }
 
     .note {
       margin-top: 48px;
       font-size: 11px;
-      color: var(--muted);
+      color: var(--mut);
       font-weight: 300;
       text-align: center;
       line-height: 1.8;
     }
 
     .note span {
-      color: var(--accent);
+      color: var(--accent)
+    }
+
+    /* ── Empty state (no files added yet) ─────────── */
+    .empty-hint {
+      text-align: center;
+      padding: 24px 0 8px;
+      font-size: 11px;
+      color: var(--mut);
+      font-weight: 300;
+      display: none;
+    }
+
+    .empty-hint.visible {
+      display: block
+    }
+
+    .highlight {
+      box-shadow: 2px 2px 18px var(--accenthalf);
+      border: 1px solid var(--mut2);
     }
   </style>
 </head>
 
 <body>
-  <div class="container">
-    <header>
-      <div class="badge">Garmin · Wahoo · Polar · Coros</div>
-      <h1>FIT<span class="arrow"> → </span>GPX</h1>
-      <p class="subtitle">
-        Convert .fit activity files to .gpx — preserving GPS track, elevation,
-        heart rate, cadence &amp; power. Runs entirely in your browser.
+  <div class="wrapper">
+
+    <!-- ════════════════════════════════════════════
+       SCREEN 1 · Mode selection
+       ════════════════════════════════════════════ -->
+    <div class="screen" id="modeScreen">
+      <header>
+        <div class="badge">Garmin · Wahoo · Polar · Coros</div>
+        <h1>FIT<span class="ital"> toolkit</span></h1>
+        <p class="subtitle">
+          Three conversions, all in your browser.
+          Pick one to get started — no files leave your device.
+        </p>
+      </header>
+
+      <div class="mode-grid">
+
+        <div class="mode-card" data-mode="gz-to-fit">
+          <div class="mc-icon">🗜️</div>
+          <div>
+            <div class="mc-title">
+              <span class="from">.fit.gz</span><span class="sep"> → </span><span class="to">.fit</span>
+            </div>
+            <div class="mc-desc">Decompress archived Garmin activity files back to raw binary .fit</div>
+          </div>
+          <div class="mc-arrow">→</div>
+        </div>
+
+        <div class="mode-card" data-mode="fit-to-gpx">
+          <div class="mc-icon">📍</div>
+          <div>
+            <div class="mc-title">
+              <span class="from">.fit</span><span class="sep"> → </span><span class="to">.gpx</span>
+            </div>
+            <div class="mc-desc">Convert binary activity data to GPS Exchange Format — HR, cadence &amp; power preserved
+            </div>
+          </div>
+          <div class="mc-arrow">→</div>
+        </div>
+
+        <div class="mode-card highlight" data-mode="gz-to-gpx">
+          <div class="mc-icon">⚡</div>
+          <div>
+            <div class="mc-title">
+              <span class="from">.fit.gz</span><span class="sep"> → </span><span class="to">.gpx</span>
+            </div>
+            <div class="mc-desc">One step: decompress and convert directly to .gpx</div>
+          </div>
+          <div class="mc-arrow">→</div>
+        </div>
+
+      </div>
+
+      <p class="note" style="margin-top:44px">
+        All processing happens locally — <span>no files are uploaded anywhere</span>.
       </p>
-    </header>
-
-    <div class="dropzone" id="dropzone">
-      <div class="dz-icon">📁</div>
-      <div class="dz-title">Drop .fit files here</div>
-      <div class="dz-sub">or <span class="link" id="browseBtn">browse files</span> to select</div>
-    </div>
-    <input type="file" id="fileInput" accept=".fit" multiple>
-
-    <div class="file-list" id="fileList"></div>
-    <div class="stats" id="stats" style="display:none"></div>
-    <div class="actions" id="actions" style="display:none">
-      <button class="btn btn-primary" id="convertAllBtn">Convert all</button>
-      <button class="btn btn-outline" id="downloadZipBtn" disabled>↓ Download .zip</button>
-      <span class="spacer"></span>
-      <button class="btn btn-outline" id="clearBtn">Clear</button>
     </div>
 
-    <p class="note">
-      All processing happens locally — <span>no files are uploaded anywhere</span>.<br>
-      Supports GPS tracks with optional HR, cadence, power &amp; temperature data.
-    </p>
-  </div>
+    <!-- ════════════════════════════════════════════
+       SCREEN 2 · Converter
+       ════════════════════════════════════════════ -->
+    <div class="screen" id="convertScreen">
+      <div style="margin-bottom:36px">
+        <button class="back-btn" id="backBtn">
+          <span class="ba">←</span> all conversions
+        </button>
+        <div class="conv-head">
+          <span class="conv-title" id="convTitle"></span><span class="mode-tag" id="modeTag"></span>
+        </div>
+        <p class="subtitle" id="convSubtitle" style="margin-top:10px"></p>
+      </div>
+
+      <div class="dropzone" id="dropzone">
+        <div class="dz-icon" id="dzIcon">📁</div>
+        <div class="dz-title" id="dzTitle">Drop files here</div>
+        <div class="dz-sub">or <span class="link" id="browseBtn">browse files</span> to select</div>
+      </div>
+      <input type="file" id="fileInput" multiple>
+
+      <div class="file-list" id="fileList"></div>
+      <div class="stats" id="statsEl" style="display:none"></div>
+      <div class="actions" id="actionsEl" style="display:none">
+        <button class="btn btn-primary" id="convertAllBtn">Convert all</button>
+        <button class="btn btn-outline" id="downloadZipBtn" disabled>↓ Download .zip</button>
+        <span class="spacer"></span>
+        <button class="btn btn-outline" id="clearBtn">Clear</button>
+      </div>
+
+      <p class="note">
+        All processing happens locally — <span>no files are uploaded anywhere</span>.<br>
+        Supports GPS, elevation, HR, cadence, power &amp; temperature data.
+      </p>
+    </div>
+
+  </div><!-- /.wrapper -->
 
   <script>
     // ═══════════════════════════════════════════════════════════
-    //  EMBEDDED FIT BINARY PARSER
-    //  Parses FIT record messages (global msg #20) directly from
-    //  an ArrayBuffer — no external library needed.
+    //  FIT PARSER
     // ═══════════════════════════════════════════════════════════
+    const FIT_EPOCH_MS = 631065600000; // 1989-12-31T00:00:00Z
+    const SEMI_TO_DEG = 180 / 2147483648;
 
-    const FIT_EPOCH_MS = 631065600000; // 1989-12-31T00:00:00Z in Unix ms
-    const SEMI_TO_DEG = 180 / 2147483648; // 180 / 2^31
-
-    /**
-     * Parse a .fit ArrayBuffer and return an array of record objects.
-     * Each record may have: timestamp, position_lat, position_long,
-     * altitude, heart_rate, cadence, power, temperature, speed.
-     */
     function parseFIT(arrayBuffer) {
       const bytes = new Uint8Array(arrayBuffer);
       const view = new DataView(arrayBuffer);
-
       if (bytes.length < 12) throw new Error('File too small');
-
       const headerSize = bytes[0];
       const magic = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
       if (magic !== '.FIT') throw new Error('Not a valid .FIT file — missing signature');
 
-      const dataSize = view.getUint32(4, true);
-      const dataEnd = Math.min(headerSize + dataSize, bytes.length);
-
-      const localDefs = {}; // localMsgType (0-15) → definition
+      const dataEnd = Math.min(headerSize + view.getUint32(4, true), bytes.length);
+      const localDefs = {};
       const records = [];
+      let fitSport = null;
+      let fitSubSport = null;
       let pos = headerSize;
 
-      while (pos < dataEnd) {
-        if (pos >= bytes.length) break;
+      while (pos < dataEnd && pos < bytes.length) {
         const recHdr = bytes[pos++];
 
-        // ── Compressed timestamp header (bit 7 set) ──────────
         if (recHdr & 0x80) {
-          const localType = (recHdr >> 5) & 0x03;
-          const def = localDefs[localType];
+          const def = localDefs[(recHdr >> 5) & 0x03];
           if (!def) continue;
-          if (def.globalMsgNum === 20) {
-            records.push(readRecord(view, pos, def));
-          }
+          if (def.globalMsgNum === 20) records.push(readRecord(view, pos, def));
           pos += def.totalSize;
           continue;
         }
@@ -480,56 +881,52 @@
         const localType = recHdr & 0x0F;
 
         if (isDef) {
-          // ── Definition message ──────────────────────────────
-          pos++;                                              // reserved
+          pos++;
           const bigEndian = bytes[pos++] === 1;
-          const globalMsgNum = view.getUint16(pos, !bigEndian);
-          pos += 2;
+          const globalMsgNum = view.getUint16(pos, !bigEndian); pos += 2;
           const nFields = bytes[pos++];
-
           const fields = [];
           let totalSize = 0;
-
           for (let i = 0; i < nFields; i++) {
             const fNum = bytes[pos++];
             const fSize = bytes[pos++];
             const bType = bytes[pos++];
-            // Signed types: sint8=0x01, sint16=0x83, sint32=0x85, sint64=0x8B
-            const isSigned = (bType === 0x01 || bType === 0x83 || bType === 0x85 || bType === 0x8B);
-            const isFloat = (bType === 0x8D || bType === 0x8E);
-            fields.push({ fNum, fSize, isSigned, isFloat });
+            fields.push({
+              fNum, fSize,
+              isSigned: (bType === 0x01 || bType === 0x83 || bType === 0x85 || bType === 0x8B),
+              isFloat: (bType === 0x8D || bType === 0x8E)
+            });
             totalSize += fSize;
           }
-
-          // Developer data fields — skip definitions but track total byte size
           if (hasDevData) {
             const nDev = bytes[pos++];
-            for (let i = 0; i < nDev; i++) {
-              pos++;                      // field number
-              const sz = bytes[pos++];    // size
-              pos++;                      // dev data index
-              totalSize += sz;
-            }
+            for (let i = 0; i < nDev; i++) { pos++; totalSize += bytes[pos++]; pos++; }
           }
-
           localDefs[localType] = { globalMsgNum, bigEndian, fields, totalSize };
-
         } else {
-          // ── Data message ────────────────────────────────────
           const def = localDefs[localType];
-          if (!def) break; // no definition — file may be corrupt
+          if (!def) break;
 
           if (def.globalMsgNum === 20) {
             records.push(readRecord(view, pos, def));
+          } else if (def.globalMsgNum === 12) {
+            let p = pos;
+            for (const { fNum, fSize } of def.fields) {
+              if (fSize === 1 && bytes[p] !== 0xFF) {
+                if (fNum === 0) fitSport = bytes[p];
+                if (fNum === 1) fitSubSport = bytes[p];
+              }
+              p += fSize;
+            }
           }
+
           pos += def.totalSize;
         }
       }
 
-      return records;
+      return { records, sport: fitSport, subSport: fitSubSport };
     }
 
-    /** Read one record data message into a plain object. */
     function readRecord(view, startPos, def) {
       const le = !def.bigEndian;
       let pos = startPos;
@@ -537,25 +934,16 @@
 
       for (const { fNum, fSize, isSigned, isFloat } of def.fields) {
         let raw = null;
-
         try {
-          if (fSize === 1) {
-            raw = isSigned ? view.getInt8(pos) : view.getUint8(pos);
-          } else if (fSize === 2) {
-            raw = isSigned ? view.getInt16(pos, le) : view.getUint16(pos, le);
-          } else if (fSize === 4) {
-            raw = isFloat ? view.getFloat32(pos, le)
-              : isSigned ? view.getInt32(pos, le)
-                : view.getUint32(pos, le);
-          } else if (fSize === 8 && isFloat) {
-            raw = view.getFloat64(pos, le);
-          }
-        } catch (_) { /* bounds check */ }
-
+          if (fSize === 1) raw = isSigned ? view.getInt8(pos) : view.getUint8(pos);
+          else if (fSize === 2) raw = isSigned ? view.getInt16(pos, le) : view.getUint16(pos, le);
+          else if (fSize === 4 && isFloat) raw = view.getFloat32(pos, le);
+          else if (fSize === 4) raw = isSigned ? view.getInt32(pos, le) : view.getUint32(pos, le);
+          else if (fSize === 8 && isFloat) raw = view.getFloat64(pos, le);
+        } catch (_) { }
         pos += fSize;
         if (raw == null) continue;
 
-        // Skip FIT "invalid" sentinel values
         if (!isFloat) {
           if (fSize === 1 && !isSigned && raw === 0xFF) continue;
           if (fSize === 1 && isSigned && raw === 0x7F) continue;
@@ -565,243 +953,378 @@
           if (fSize === 4 && isSigned && raw === 0x7FFFFFFF) continue;
         }
 
-        // ── Map known record-message fields (global msg 20) ──
         switch (fNum) {
-          // timestamp: uint32, seconds since FIT epoch (1989-12-31)
           case 253: r.timestamp = new Date(raw * 1000 + FIT_EPOCH_MS); break;
-          // position: sint32, semicircles → convert to degrees
           case 0: r.position_lat = raw * SEMI_TO_DEG; break;
           case 1: r.position_long = raw * SEMI_TO_DEG; break;
-          // altitude: uint16, scale=5 offset=500 → metres
           case 2: r.altitude = raw / 5 - 500; break;
-          // enhanced_altitude: uint32, same formula, higher precision
           case 78: r.altitude = raw / 5 - 500; break;
-          // metrics (no scaling needed)
           case 3: r.heart_rate = raw; break;
           case 4: r.cadence = raw; break;
           case 7: r.power = raw; break;
           case 13: r.temperature = raw; break;
-          // speed: uint16, scale=1000, m/s
           case 6: r.speed = raw / 1000; break;
         }
       }
-
       return r;
     }
+
+
+    // hier der fitsporttopgxtype?
+
+    function fitSportToGpxType(sport, subSport) {
+      const sub = {
+        46: 'gravelride', 7: 'cycling', 8: 'mountainbike',
+        2: 'running', 3: 'trailrun', 1: 'running', 45: 'running',
+      };
+      if (subSport != null && sub[subSport]) return sub[subSport];
+      const s = {
+        1: 'running', 2: 'cycling', 11: 'walking',
+        17: 'hiking', 5: 'swimming', 13: 'skiing',
+      };
+      return s[sport] || 'other';
+    }
+
+    // keine ahnung
 
     // ═══════════════════════════════════════════════════════════
     //  GPX BUILDER
     // ═══════════════════════════════════════════════════════════
+    function buildGPX(records, trackName, sportType = '') {
+      const gps = records.filter(r => r.position_lat != null && r.position_long != null);
+      if (!gps.length) throw new Error('No GPS data found in this file');
 
-    function buildGPX(records, trackName) {
-      const gpsRecords = records.filter(
-        r => r.position_lat != null && r.position_long != null
-      );
-
-      if (gpsRecords.length === 0) {
-        throw new Error('No GPS data found in this file');
-      }
-
-      const trkpts = gpsRecords.map(r => {
-        const lat = r.position_lat.toFixed(7);
-        const lon = r.position_long.toFixed(7);
-
+      const pts = gps.map(r => {
         let inner = '';
         if (r.altitude != null) inner += `\n        <ele>${r.altitude.toFixed(2)}</ele>`;
         if (r.timestamp) inner += `\n        <time>${r.timestamp.toISOString()}</time>`;
-
         const ext = [];
         if (r.heart_rate != null) ext.push(`<gpxtpx:hr>${r.heart_rate}</gpxtpx:hr>`);
         if (r.cadence != null) ext.push(`<gpxtpx:cad>${r.cadence}</gpxtpx:cad>`);
         if (r.temperature != null) ext.push(`<gpxtpx:atemp>${r.temperature}</gpxtpx:atemp>`);
         if (r.power != null) ext.push(`<power>${r.power}</power>`);
-        if (ext.length) {
-          inner += `\n        <extensions><gpxtpx:TrackPointExtension>${ext.join('')}</gpxtpx:TrackPointExtension></extensions>`;
-        }
-
-        return `      <trkpt lat="${lat}" lon="${lon}">${inner}\n      </trkpt>`;
+        if (ext.length) inner += `\n        <extensions><gpxtpx:TrackPointExtension>${ext.join('')}</gpxtpx:TrackPointExtension></extensions>`;
+        return `      <trkpt lat="${r.position_lat.toFixed(7)}" lon="${r.position_long.toFixed(7)}">${inner}\n      </trkpt>`;
       }).join('\n');
 
       return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="FIT→GPX Converter"
+<gpx version="1.1" creator="FIT Toolkit"
   xmlns="http://www.topografix.com/GPX/1/1"
   xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
   <trk>
     <name>${escXml(trackName)}</name>
+    ${sportType ? `<type>${escXml(sportType)}</type>` : ''}
     <trkseg>
-${trkpts}
+${pts}
     </trkseg>
   </trk>
 </gpx>`;
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  UI
+    //  GZIP DECOMPRESSOR
     // ═══════════════════════════════════════════════════════════
+    async function decompressGzip(arrayBuffer) {
+      if (!('DecompressionStream' in window))
+        throw new Error('Browser lacks DecompressionStream. Use Chrome 80+, Firefox 113+, or Safari 16.4+.');
+      const stream = new Blob([arrayBuffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(stream).arrayBuffer();
+    }
 
+    // ═══════════════════════════════════════════════════════════
+    //  MODE CONFIG
+    // ═══════════════════════════════════════════════════════════
+    const MODES = {
+      'gz-to-fit': {
+        fromHTML: '<span class="from">.fit.gz</span>',
+        toHTML: '<span class="to">.fit</span>',
+        extLabel: '.fit',
+        accept: '.gz',
+        tag: 'decompress',
+        actionLabel: 'Decompress all',
+        zipName: 'fit-activities.zip',
+        subtitle: 'Decompress .fit.gz archives to extract the raw binary .fit activity file.',
+        dzTitle: 'Drop .fit.gz files here',
+        dzIcon: '🗜️',
+        filter: n => n.endsWith('.gz'),
+        outName: n => n.replace(/\.fit\.gz$/i, '.fit').replace(/\.gz$/i, '.fit'),
+        async process(buf, _trackName) {
+          return { data: await decompressGzip(buf), mime: 'application/octet-stream' };
+        }
+      },
+      'fit-to-gpx': {
+        fromHTML: '<span class="from">.fit</span>',
+        toHTML: '<span class="to">.gpx</span>',
+        extLabel: '.gpx',
+        accept: '.fit',
+        tag: 'convert',
+        actionLabel: 'Convert all',
+        zipName: 'gpx-activities.zip',
+        subtitle: 'Convert binary .fit activity files to .gpx — GPS, elevation, HR, cadence & power preserved.',
+        dzTitle: 'Drop .fit files here',
+        dzIcon: '📍',
+        filter: n => n.endsWith('.fit') && !n.endsWith('.fit.gz'),
+        outName: n => n.replace(/\.fit$/i, '.gpx'),
+        async process(buf, trackName) {
+          const { records, sport, subSport } = parseFIT(buf);
+          return { data: buildGPX(records, trackName, fitSportToGpxType(sport, subSport)), mime: 'application/gpx+xml' };
+        }
+      },
+      'gz-to-gpx': {
+        fromHTML: '<span class="from">.fit.gz</span>',
+        toHTML: '<span class="to">.gpx</span>',
+        extLabel: '.gpx',
+        accept: '.gz',
+        tag: 'decompress + convert',
+        actionLabel: 'Convert all',
+        zipName: 'gpx-activities.zip',
+        subtitle: 'Decompress and convert .fit.gz archives directly to .gpx in one step.',
+        dzTitle: 'Drop .fit.gz files here',
+        dzIcon: '⚡',
+        filter: n => n.endsWith('.gz'),
+        outName: n => n.replace(/\.fit\.gz$/i, '.gpx').replace(/\.gz$/i, '.gpx'),
+        async process(buf, trackName) {
+          const fit = await decompressGzip(buf);
+          const { records, sport, subSport } = parseFIT(fit);
+          return { data: buildGPX(records, trackName, fitSportToGpxType(sport, subSport)), mime: 'application/gpx+xml' };
+        }
+      }
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    //  STATE
+    // ═══════════════════════════════════════════════════════════
     const files = [];
     let nextId = 0;
+    let currentMode = null;
+    let busy = false;
 
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const browseBtn = document.getElementById('browseBtn');
-    const fileListEl = document.getElementById('fileList');
-    const statsEl = document.getElementById('stats');
-    const actionsEl = document.getElementById('actions');
-    const convertAllBtn = document.getElementById('convertAllBtn');
-    const downloadZipBtn = document.getElementById('downloadZipBtn');
-    const clearBtn = document.getElementById('clearBtn');
+    // ═══════════════════════════════════════════════════════════
+    //  SCREEN TRANSITIONS
+    // ═══════════════════════════════════════════════════════════
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => {
+        if (s.id === id) {
+          s.classList.remove('in', 'out');
+          void s.offsetWidth; // force reflow to restart animation
+          s.classList.add('in');
+        } else if (s.classList.contains('in')) {
+          s.classList.remove('in');
+          s.classList.add('out');
+          setTimeout(() => s.classList.remove('out'), 260);
+        }
+      });
+    }
 
-    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    // ═══════════════════════════════════════════════════════════
+    //  DOM REFS
+    // ═══════════════════════════════════════════════════════════
+    const $ = id => document.getElementById(id);
+    const dropzone = $('dropzone');
+    const fileInput = $('fileInput');
+    const fileListEl = $('fileList');
+    const statsEl = $('statsEl');
+    const actionsEl = $('actionsEl');
+    const convertAllBtn = $('convertAllBtn');
+    const downloadZipBtn = $('downloadZipBtn');
+    const clearBtn = $('clearBtn');
+
+    // ═══════════════════════════════════════════════════════════
+    //  MODE SELECTION
+    // ═══════════════════════════════════════════════════════════
+    document.querySelectorAll('.mode-card').forEach(card => {
+      card.addEventListener('click', () => {
+        currentMode = card.dataset.mode;
+        const m = MODES[currentMode];
+
+        $('convTitle').innerHTML = `${m.fromHTML}<span class="sep"> → </span>${m.toHTML}`;
+        $('modeTag').textContent = m.tag;
+        $('convSubtitle').textContent = m.subtitle;
+        $('dzIcon').textContent = m.dzIcon;
+        $('dzTitle').textContent = m.dzTitle;
+        fileInput.accept = m.accept;
+        convertAllBtn.textContent = m.actionLabel;
+
+        files.length = 0; nextId = 0;
+        render();
+        showScreen('convertScreen');
+      });
+    });
+
+    $('backBtn').addEventListener('click', () => showScreen('modeScreen'));
+
+    // ═══════════════════════════════════════════════════════════
+    //  DROPZONE EVENTS
+    // ═══════════════════════════════════════════════════════════
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over') });
     dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
     dropzone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropzone.classList.remove('drag-over');
+      e.preventDefault(); dropzone.classList.remove('drag-over');
       addFiles([...e.dataTransfer.files]);
     });
     dropzone.addEventListener('click', () => fileInput.click());
-    browseBtn.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
-    fileInput.addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
+    $('browseBtn').addEventListener('click', e => { e.stopPropagation(); fileInput.click() });
+    fileInput.addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = '' });
 
-    function addFiles(incoming) {
-      incoming
-        .filter(f => f.name.toLowerCase().endsWith('.fit'))
+    // ═══════════════════════════════════════════════════════════
+    //  FILE MANAGEMENT
+    // ═══════════════════════════════════════════════════════════
+    function addFiles(list) {
+      if (!currentMode) return;
+      const m = MODES[currentMode];
+      list
+        .filter(f => m.filter(f.name.toLowerCase()))
         .forEach(f => files.push({
-          id: ++nextId, name: f.name, size: f.size,
-          file: f, status: 'pending', gpxContent: null, error: null
+          id: ++nextId,
+          name: f.name,
+          outName: m.outName(f.name),
+          size: f.size,
+          file: f,
+          status: 'pending',
+          outData: null,
+          outMime: null,
+          error: null
         }));
       render();
     }
 
     function fmtSize(b) {
-      if (b < 1024) return b + ' B';
-      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
-      return (b / 1048576).toFixed(1) + ' MB';
+      return b < 1024 ? b + ' B'
+        : b < 1048576 ? (b / 1024).toFixed(1) + ' KB'
+          : (b / 1048576).toFixed(1) + ' MB';
     }
 
+    // ═══════════════════════════════════════════════════════════
+    //  RENDER
+    // ═══════════════════════════════════════════════════════════
     function render() {
+      if (!currentMode) return;
+      const m = MODES[currentMode];
       fileListEl.innerHTML = '';
 
       files.forEach(f => {
-        const item = document.createElement('div');
-        item.className = `file-item ${f.status}`;
+        const div = document.createElement('div');
+        div.className = `file-item ${f.status}`;
 
         let right = '';
-        if (f.status === 'done') {
-          right = `<a class="file-action" data-id="${f.id}" href="#">↓ .gpx</a>`;
-        } else if (f.status === 'error') {
-          right = `<span class="file-err-label" title="${escHtml(f.error)}">✗ error</span>`;
-        } else {
+        if (f.status === 'done')
+          right = `<button class="file-action" data-id="${f.id}">↓ ${m.extLabel}</button>`;
+        else if (f.status === 'error')
+          right = `<span class="file-err" title="${escHtml(f.error)}">✗ error</span>`;
+        else
           right = `<span></span>`;
-        }
 
-        item.innerHTML = `
+        div.innerHTML = `
       <div class="dot ${f.status}"></div>
       <span class="file-name" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
       <span class="file-size">${fmtSize(f.size)}</span>
-      ${right}
-    `;
+      ${right}`;
 
-        if (f.status === 'done') {
-          item.querySelector('[data-id]').addEventListener('click', e => {
-            e.preventDefault();
-            downloadSingle(f);
-          });
-        }
+        if (f.status === 'done')
+          div.querySelector('[data-id]').addEventListener('click', () => downloadSingle(f));
 
-        fileListEl.appendChild(item);
+        fileListEl.appendChild(div);
       });
 
       const total = files.length;
       const done = files.filter(f => f.status === 'done').length;
       const errors = files.filter(f => f.status === 'error').length;
+      const pending = files.filter(f => f.status === 'pending').length;
 
       statsEl.style.display = total ? 'flex' : 'none';
       actionsEl.style.display = total ? 'flex' : 'none';
 
       statsEl.innerHTML = `
     <span>Files: <strong>${total}</strong></span>
-    <span>Converted: <strong>${done}</strong></span>
-    ${errors ? `<span style="color:var(--error)">Errors: <strong>${errors}</strong></span>` : ''}
-  `;
+    <span>Done: <strong>${done}</strong></span>
+    ${errors ? `<span style="color:var(--error)">Errors: <strong>${errors}</strong></span>` : ''}`;
 
-      convertAllBtn.disabled = !files.some(f => f.status === 'pending');
+      convertAllBtn.disabled = busy || pending === 0;
       downloadZipBtn.disabled = done === 0;
     }
 
-    function doConvert(fileObj) {
-      return new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          try {
-            const records = parseFIT(e.target.result);
-            fileObj.gpxContent = buildGPX(records, fileObj.name.replace(/\.fit$/i, ''));
-            fileObj.status = 'done';
-          } catch (err) {
-            fileObj.status = 'error';
-            fileObj.error = err.message;
-          }
-          resolve();
-        };
-        reader.onerror = () => {
-          fileObj.status = 'error';
-          fileObj.error = 'Could not read file';
-          resolve();
-        };
-        reader.readAsArrayBuffer(fileObj.file);
+    // ═══════════════════════════════════════════════════════════
+    //  CONVERSION
+    // ═══════════════════════════════════════════════════════════
+    convertAllBtn.addEventListener('click', async () => {
+      busy = true;
+      render();
+
+      const pending = files.filter(f => f.status === 'pending');
+      for (const f of pending) {
+        f.status = 'converting';
+        render();
+        try {
+          const buf = await readAsBuffer(f.file);
+          const trackName = f.outName.replace(/\.\w+$/, '');
+          const result = await MODES[currentMode].process(buf, trackName);
+          f.outData = result.data;
+          f.outMime = result.mime;
+          f.status = 'done';
+        } catch (err) {
+          f.status = 'error';
+          f.error = err.message;
+        }
+        render();
+      }
+
+      busy = false;
+      render();
+    });
+
+    function readAsBuffer(file) {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result);
+        r.onerror = () => rej(new Error('Could not read file'));
+        r.readAsArrayBuffer(file);
       });
     }
 
-    convertAllBtn.addEventListener('click', async () => {
-      convertAllBtn.disabled = true;
-      for (const f of files.filter(f => f.status === 'pending')) {
-        f.status = 'converting';
-        render();
-        await doConvert(f);
-        render();
-      }
-      convertAllBtn.disabled = false;
-      render();
-    });
+    // ═══════════════════════════════════════════════════════════
+    //  DOWNLOAD
+    // ═══════════════════════════════════════════════════════════
+    function downloadSingle(f) {
+      triggerDownload(new Blob([f.outData], { type: f.outMime }), f.outName);
+    }
 
     downloadZipBtn.addEventListener('click', async () => {
       downloadZipBtn.disabled = true;
       downloadZipBtn.textContent = '⏳ Zipping…';
       try {
         const zip = new JSZip();
-        files.filter(f => f.status === 'done').forEach(f => {
-          zip.file(f.name.replace(/\.fit$/i, '.gpx'), f.gpxContent);
-        });
+        files.filter(f => f.status === 'done').forEach(f => zip.file(f.outName, f.outData));
         const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-        triggerDownload(blob, 'gpx-activities.zip');
+        triggerDownload(blob, MODES[currentMode].zipName);
       } finally {
         downloadZipBtn.textContent = '↓ Download .zip';
-        downloadZipBtn.disabled = false;
+        downloadZipBtn.disabled = files.filter(f => f.status === 'done').length === 0;
       }
     });
 
-    clearBtn.addEventListener('click', () => { files.length = 0; render(); });
-
-    function downloadSingle(f) {
-      const blob = new Blob([f.gpxContent], { type: 'application/gpx+xml' });
-      triggerDownload(blob, f.name.replace(/\.fit$/i, '.gpx'));
-    }
+    clearBtn.addEventListener('click', () => { files.length = 0; render() });
 
     function triggerDownload(blob, filename) {
       const url = URL.createObjectURL(blob);
       const a = Object.assign(document.createElement('a'), { href: url, download: filename });
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
 
+    // ═══════════════════════════════════════════════════════════
+    //  UTILS
+    // ═══════════════════════════════════════════════════════════
     function escHtml(s) {
-      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
-    function escXml(s) { return escHtml(s); }
+    function escXml(s) { return escHtml(s) }
+
+    // ── INIT ──────────────────────────────────────────────────
+    showScreen('modeScreen');
   </script>
 </body>
 
