@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trailboard — Trainingsanalyse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --orange: #FC4C02;
+      --orange-dark: #DA3F00;
+      --orange-glow: rgba(252, 76, 2, .18);
+      --ink: #cfe7ff;
+      --ink-soft: #9daab8;
+      --ink-faint: #8A8F94;
+      --paper: #1a1a1a;
+      --card: #0c0c0c;
+      --line: #363636;
+      --line-soft: #3e3e3e;
+      --ride: #0A6CFF;
+      --swim: #00AEC7;
+      --hike: #3F7D4A;
+      --ski: #8E44AD;
+      --walk: #8A8F94;
+      --other: #B5651D;
+      --shadow-sm: 0 1px 2px rgba(21, 24, 27, .05), 0 2px 8px rgba(21, 24, 27, .04);
+      --shadow-md: 0 4px 16px rgba(21, 24, 27, .08), 0 1px 3px rgba(21, 24, 27, .06);
+      --shadow-lg: 0 12px 40px rgba(21, 24, 27, .16), 0 2px 8px rgba(21, 24, 27, .08);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    .display {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      letter-spacing: .2px;
+      margin: 0;
+    }
+
+    .mono {
+      font-family: 'DM Mono', monospace;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    button {
+      font-family: inherit;
+    }
+
+    ::selection {
+      background: var(--orange-glow);
+    }
+
+    /* ── scrollbar (subtle) ───────────────────────────────── */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #DCDAD5;
+      border-radius: 8px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--ink-faint);
+    }
+
+    /* ── screens ──────────────────────────────────────────── */
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+      animation: fadeUp .5s cubic-bezier(.2, .8, .2, 1);
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════
+     UPLOAD SCREEN
+     ══════════════════════════════════════════════════════ */
+    .topnav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 5vw;
+      position: relative;
+      z-index: 5;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand .mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: var(--orange);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px var(--orange-glow);
+    }
+
+    .brand .mark svg {
+      width: 19px;
+      height: 19px;
+    }
+
+    .brand span {
+      font-family: 'Barlow Condensed';
+      font-weight: 900;
+      font-size: 24px;
+      letter-spacing: .3px;
+    }
+
+    .hero {
+      position: relative;
+      padding: 8vh 5vw 10vh;
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 6vw;
+      align-items: center;
+      max-width: 1360px;
+      margin: 0 auto;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 18px;
+    }
+
+    .hero-eyebrow::before {
+      content: '';
+      width: 22px;
+      height: 2px;
+      background: var(--orange);
+      display: inline-block;
+    }
+
+    .hero h1 {
+      font-size: clamp(42px, 6.2vw, 84px);
+      line-height: .96;
+      color: var(--ink);
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      color: var(--orange);
+      position: relative;
+    }
+
+    .hero p.lede {
+      font-family: 'Inter';
+      font-size: 18px;
+      line-height: 1.6;
+      color: var(--ink-soft);
+      max-width: 520px;
+      margin-top: 22px;
+      font-weight: 400;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 34px;
+      margin-top: 36px;
+    }
+
+    .hero-stats div b {
+      display: block;
+      font-family: 'Barlow Condensed';
+      font-weight: 800;
+      font-size: 30px;
+      color: var(--ink);
+    }
+
+    .hero-stats div span {
+      font-size: 12.5px;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+    }
+
+    .dropzone {
+      background: var(--card);
+      border: 2px dashed var(--line);
+      border-radius: 20px;
+      padding: 44px 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .25s, transform .25s, box-shadow .25s;
+      box-shadow: var(--shadow-md);
+      position: relative;
+    }
+
+    .dropzone:hover {
+      border-color: var(--orange);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .dropzone.drag-over {
+      border-color: var(--orange);
+      background: #FFF7F3;
+      transform: scale(1.01);
+    }
+
+    .dropzone .dz-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, var(--orange), var(--orange-dark));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+      box-shadow: 0 8px 20px var(--orange-glow);
+    }
+
+    .dropzone .dz-icon svg {
+      width: 28px;
+      height: 28px;
+      stroke: #fff;
+    }
+
+    .dropzone h3 {
+      font-size: 23px;
+      margin-bottom: 6px;
+    }
+
+    .dropzone p {
+      color: var(--ink-faint);
+      font-size: 14px;
+      margin: 0 0 18px;
+    }
+
+    .browse-btn {
+      background: var(--ink);
+      color: var(--line);
+      border: none;
+      padding: 12px 26px;
+      border-radius: 100px;
+      font-weight: 600;
+      font-size: 14.5px;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+
+    .browse-btn:hover {
+      background: var(--orange);
+      transform: translateY(-2px);
+    }
+
+    .formats-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .format-chip {
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 5px 11px;
+      border-radius: 100px;
+      background: var(--line-soft);
+      color: var(--ink-soft);
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .parsing-bar {
+      margin-top: 18px;
+      background: var(--line-soft);
+      border-radius: 100px;
+      height: 8px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .parsing-bar.show {
+      display: block;
+    }
+
+    .parsing-bar>div {
+      height: 100%;
+      background: linear-gradient(90deg, var(--orange), var(--orange-dark));
+      width: 0%;
+      transition: width .3s;
+      border-radius: 100px;
+    }
+
+    .parsing-label {
+      font-size: 12.5px;
+      color: var(--ink-faint);
+      margin-top: 8px;
+      text-align: center;
+      display: none;
+    }
+
+    .parsing-label.show {
+      display: block;
+    }
+
+    /* ══════════════════════════════════════════════════════
+     DASHBOARD
+     ══════════════════════════════════════════════════════ */
+    .dash-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(48, 48, 48, 0.86);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 5vw;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .dash-topbar .brand span {
+      font-size: 20px;
+    }
+
+    .dash-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      padding: 9px 16px;
+      border-radius: 100px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .18s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      border-color: var(--ink);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn.primary {
+      background: var(--orange);
+      border-color: var(--orange);
+      color: #fff;
+    }
+
+    .btn.primary:hover {
+      background: var(--orange-dark);
+      border-color: var(--orange-dark);
+    }
+
+    .btn.ghost {
+      border-color: transparent;
+      background: transparent;
+    }
+
+    .btn.ghost:hover {
+      background: var(--line-soft);
+    }
+
+    .btn:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn.small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .dash-wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 28px 5vw 80px;
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-bottom: 26px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--line-soft);
+      transition: transform .2s, box-shadow .2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .stat-card .lbl {
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: .9px;
+      color: var(--ink-faint);
+      font-weight: 700;
+    }
+
+    .stat-card .val {
+      font-family: 'Barlow Condensed';
+      font-weight: 800;
+      font-size: 32px;
+      margin-top: 6px;
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+    }
+
+    .stat-card .val small {
+      font-size: 14px;
+      color: var(--ink-faint);
+      font-family: 'Inter';
+      font-weight: 600;
+    }
+
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    /* ── card shell ───────────────────────────────────────── */
+    .panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--line-soft);
+      box-shadow: var(--shadow-sm);
+      padding: 20px 22px;
+      margin-bottom: 20px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .panel-head h2 {
+      font-size: 22px;
+    }
+
+    .panel-head .sub {
+      font-size: 12.5px;
+      color: var(--ink-faint);
+      margin-top: 2px;
+      font-family: 'Inter';
+      font-weight: 500;
+    }
+
+    /* ── toolbar / filters ───────────────────────────────── */
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    select,
+    .select {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      padding: 8px 30px 8px 12px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' stroke='%23565B60' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      transition: border-color .2s;
+    }
+
+    select:hover {
+      border-color: var(--ink);
+    }
+
+    select:focus,
+    .browse-btn:focus,
+    .btn:focus {
+      outline: 2px solid var(--orange);
+      outline-offset: 2px;
+    }
+
+    /* ── activity feed cards ─────────────────────────────── */
+    .activity-card {
+      background: var(--card);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s, border-color .2s;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .activity-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--orange);
+    }
+
+    .sport-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 21px;
+      flex-shrink: 0;
+    }
+
+    .ac-main .name {
+      font-weight: 700;
+      font-size: 15.5px;
+    }
+
+    .ac-main .meta {
+      font-size: 12.5px;
+      color: var(--ink-faint);
+      margin-top: 3px;
+    }
+
+    .ac-main select.sport-select {
+      margin-top: 6px;
+      font-size: 11px;
+      padding: 3px 22px 3px 9px;
+    }
+
+    .ac-metrics {
+      display: flex;
+      gap: 22px;
+      text-align: right;
+    }
+
+    .ac-metrics div b {
+      display: block;
+      font-family: 'Barlow Condensed';
+      font-weight: 800;
+      font-size: 19px;
+    }
+
+    .ac-metrics div span {
+      font-size: 10.5px;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--ink-faint);
+    }
+
+    .empty-state svg {
+      width: 46px;
+      height: 46px;
+      opacity: .35;
+      margin-bottom: 10px;
+    }
+
+    /* ── charts ───────────────────────────────────────────── */
+    .chart-card {
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .chart-card canvas {
+      width: 100%;
+      height: 150px;
+      display: block;
+    }
+
+    .chart-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: var(--ink);
+      color: #656565;
+      font-size: 11.5px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transform: translate(-50%, -115%);
+      opacity: 0;
+      transition: opacity .1s;
+      white-space: nowrap;
+      font-weight: 600;
+      z-index: 5;
+    }
+
+    .chart-tooltip.show {
+      opacity: 1;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+
+    /* ── heat calendar (signature element) ───────────────── */
+    .heat-wrap {
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .heat-grid {
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-rows: repeat(7, 12px);
+      gap: 3px;
+    }
+
+    .heat-cell {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--line-soft);
+      position: relative;
+    }
+
+    .heat-cell[data-level="1"] {
+      background: #FFD9C2;
+    }
+
+    .heat-cell[data-level="2"] {
+      background: #FFAD7A;
+    }
+
+    .heat-cell[data-level="3"] {
+      background: var(--orange);
+    }
+
+    .heat-cell[data-level="4"] {
+      background: var(--orange-dark);
+    }
+
+    .heat-cell:hover {
+      outline: 1.5px solid var(--ink);
+      z-index: 2;
+    }
+
+    .heat-legend {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--ink-faint);
+      justify-content: flex-end;
+    }
+
+    .heat-legend .heat-cell {
+      cursor: default;
+    }
+
+    /* ── custom chart builder ────────────────────────────── */
+    .builder-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .custom-charts {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .custom-chart-card {
+      position: relative;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+    }
+
+    .custom-chart-card .remove {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: none;
+      background: var(--line-soft);
+      color: var(--ink-soft);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s;
+    }
+
+    .custom-chart-card .remove:hover {
+      background: var(--orange);
+      color: #fff;
+    }
+
+    /* ── modal ────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(21, 24, 27, .55);
+      backdrop-filter: blur(3px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: var(--card);
+      border-radius: 20px;
+      max-width: 780px;
+      width: 100%;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 30px 32px;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(16px) scale(.98);
+      transition: transform .25s;
+    }
+
+    .modal-overlay.show .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 22px;
+      right: 26px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: none;
+      background: var(--line-soft);
+      cursor: pointer;
+      font-size: 16px;
+      color: var(--ink-soft);
+      transition: background .15s;
+    }
+
+    .modal-close:hover {
+      background: var(--orange);
+      color: #fff;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .modal-grid .mstat {
+      background: var(--paper);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .modal-grid .mstat b {
+      display: block;
+      font-family: 'Barlow Condensed';
+      font-weight: 800;
+      font-size: 22px;
+    }
+
+    .modal-grid .mstat span {
+      font-size: 10.5px;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    .track-preview {
+      width: 100%;
+      height: 190px;
+      border-radius: 14px;
+      background: var(--paper);
+      margin-bottom: 6px;
+    }
+
+    .elev-preview {
+      width: 100%;
+      height: 110px;
+      display: block;
+    }
+
+    @media (max-width:980px) {
+      .layout-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stat-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .modal-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══════════════════════════════ UPLOAD SCREEN ══════════════════════════════ -->
+  <section class="screen active" id="uploadScreen">
+    <nav class="topnav">
+      <div class="brand">
+        <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round">
+            <path d="M4 17l4-7 3 4 3-9 6 12" />
+          </svg></div>
+        <span>Trailboard</span>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div>
+        <div class="hero-eyebrow">Lokale Trainingsanalyse</div>
+        <h1>Deine Läufe.<br>Deine <em>Daten</em>.<br>Kein Upload zu Servern.</h1>
+        <p class="lede">Zieh deine <b>.gpx</b>-, <b>.fit</b>- oder <b>.fit.gz</b>-Dateien rein und bekomm sofort Pace,
+          Höhenmeter, Herzfrequenz-Trends und Wochenstatistiken — alles läuft direkt im Browser.</p>
+        <div class="hero-stats">
+          <div><b id="heroCountUp">0</b><span>Aktivitäten geladen</span></div>
+          <div><b>100%</b><span>Client-seitig</span></div>
+          <div><b>3</b><span>Dateiformate</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="dropzone" id="dropzone">
+          <div class="dz-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M12 3v13m0-13l-4.5 4.5M12 3l4.5 4.5" />
+              <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+            </svg></div>
+          <h3>Aktivitäten hierher ziehen</h3>
+          <p>oder klicken, um Dateien auszuwählen</p>
+          <button class="browse-btn" id="browseBtn">Dateien auswählen</button>
+          <input type="file" id="fileInput" multiple accept=".gpx,.fit,.gz">
+          <div class="formats-row">
+            <span class="format-chip">.gpx</span>
+            <span class="format-chip">.fit</span>
+            <span class="format-chip">.fit.gz</span>
+          </div>
+          <div class="parsing-bar" id="parsingBar">
+            <div id="parsingFill"></div>
+          </div>
+          <div class="parsing-label" id="parsingLabel">Verarbeite Dateien…</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════ DASHBOARD ══════════════════════════════ -->
+  <section class="screen" id="dashboard">
+    <div class="dash-topbar">
+      <div class="brand">
+        <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round">
+            <path d="M4 17l4-7 3 4 3-9 6 12" />
+          </svg></div>
+        <span>Trailboard</span>
+      </div>
+      <div class="dash-actions">
+        <button class="btn ghost small" id="addMoreBtn">+ Dateien hinzufügen</button>
+        <button class="btn ghost small" id="clearAllBtn">Alles löschen</button>
+      </div>
+    </div>
+
+    <div class="dash-wrap">
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="layout-grid">
+        <!-- LEFT: feed -->
+        <div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Aktivitäten</h2>
+                <div class="sub" id="feedCount">0 Aktivitäten</div>
+              </div>
+              <div class="toolbar">
+                <select id="sportFilter"></select>
+                <select id="sortSelect">
+                  <option value="date_desc">Neueste zuerst</option>
+                  <option value="date_asc">Älteste zuerst</option>
+                  <option value="dist_desc">Distanz ↓</option>
+                  <option value="dist_asc">Distanz ↑</option>
+                  <option value="pace_fast">Schnellste zuerst</option>
+                  <option value="pace_slow">Langsamste zuerst</option>
+                  <option value="dur_desc">Dauer ↓</option>
+                  <option value="hr_desc">Ø Herzfrequenz ↓</option>
+                </select>
+              </div>
+            </div>
+            <div id="feedList"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Eigene Grafik erstellen</h2>
+                <div class="sub">Wähle Metrik, Gruppierung und Sportart</div>
+              </div>
+            </div>
+            <div class="builder-row">
+              <select id="cbMetric">
+                <option value="distance">Distanz (km)</option>
+                <option value="duration">Dauer (h)</option>
+                <option value="speed">Ø Geschwindigkeit (km/h)</option>
+                <option value="hr">Ø Herzfrequenz (bpm)</option>
+                <option value="elevation">Höhenmeter (m)</option>
+                <option value="count">Anzahl Aktivitäten</option>
+              </select>
+              <select id="cbGroup">
+                <option value="day">pro Tag</option>
+                <option value="week" selected>pro Woche</option>
+                <option value="month">pro Monat</option>
+              </select>
+              <select id="cbSport"></select>
+              <select id="cbType">
+                <option value="bar">Balken</option>
+                <option value="line">Linie</option>
+              </select>
+              <button class="btn primary small" id="cbAdd">+ Grafik hinzufügen</button>
+            </div>
+            <div class="custom-charts" id="customCharts"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: analytics -->
+        <div>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Trainingskalender</h2>
+            </div>
+            <div class="heat-wrap">
+              <div class="heat-grid" id="heatGrid"></div>
+            </div>
+            <div class="heat-legend">
+              weniger
+              <span class="heat-cell" data-level="0"></span>
+              <span class="heat-cell" data-level="1"></span>
+              <span class="heat-cell" data-level="2"></span>
+              <span class="heat-cell" data-level="3"></span>
+              <span class="heat-cell" data-level="4"></span>
+              mehr
+            </div>
+          </div>
+
+          <div class="panel chart-card">
+            <div class="panel-head">
+              <h2>Kilometer / Woche</h2>
+            </div>
+            <canvas id="chartWeeklyDist"></canvas>
+          </div>
+
+          <div class="panel chart-card">
+            <div class="panel-head">
+              <h2>Ø Pace / Tempo pro Woche</h2>
+            </div>
+            <canvas id="chartWeeklyPace"></canvas>
+          </div>
+
+          <div class="panel chart-card">
+            <div class="panel-head">
+              <h2>Aktivitäten pro Woche</h2>
+            </div>
+            <canvas id="chartWeeklyCount"></canvas>
+          </div>
+
+          <div class="panel chart-card">
+            <div class="panel-head">
+              <h2>Startzeit — Tageszeit</h2>
+            </div>
+            <canvas id="chartTimeOfDay"></canvas>
+          </div>
+
+          <div class="panel chart-card" id="hrPanel">
+            <div class="panel-head">
+              <h2>Herzfrequenz-Verteilung</h2>
+            </div>
+            <canvas id="chartHR"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════ ACTIVITY MODAL ══════════════════════════════ -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════
+    //  FIT PARSER  (binary Garmin/ANT .fit format)
+    // ═══════════════════════════════════════════════════════════
+    const FIT_EPOCH_MS = 631065600000; // 1989-12-31T00:00:00Z
+    const SEMI_TO_DEG = 180 / 2147483648;
+
+    function parseFIT(arrayBuffer) {
+      const bytes = new Uint8Array(arrayBuffer);
+      const view = new DataView(arrayBuffer);
+      if (bytes.length < 12) throw new Error('Datei zu klein');
+      const headerSize = bytes[0];
+      const magic = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+      if (magic !== '.FIT') throw new Error('Keine gültige .FIT-Datei');
+
+      const dataEnd = Math.min(headerSize + view.getUint32(4, true), bytes.length);
+      const localDefs = {};
+      const records = [];
+      let fitSport = null;
+      let fitSubSport = null;
+      let pos = headerSize;
+
+      while (pos < dataEnd && pos < bytes.length) {
+        const recHdr = bytes[pos++];
+
+        if (recHdr & 0x80) {
+          const def = localDefs[(recHdr >> 5) & 0x03];
+          if (!def) continue;
+          if (def.globalMsgNum === 20) records.push(readRecord(view, pos, def));
+          pos += def.totalSize;
+          continue;
+        }
+
+        const isDef = !!(recHdr & 0x40);
+        const hasDevData = !!(recHdr & 0x20);
+        const localType = recHdr & 0x0F;
+
+        if (isDef) {
+          pos++;
+          const bigEndian = bytes[pos++] === 1;
+          const globalMsgNum = view.getUint16(pos, !bigEndian); pos += 2;
+          const nFields = bytes[pos++];
+          const fields = [];
+          let totalSize = 0;
+          for (let i = 0; i < nFields; i++) {
+            const fNum = bytes[pos++];
+            const fSize = bytes[pos++];
+            const bType = bytes[pos++];
+            fields.push({
+              fNum, fSize,
+              isSigned: (bType === 0x01 || bType === 0x83 || bType === 0x85 || bType === 0x8B),
+              isFloat: (bType === 0x8D || bType === 0x8E)
+            });
+            totalSize += fSize;
+          }
+          if (hasDevData) {
+            const nDev = bytes[pos++];
+            for (let i = 0; i < nDev; i++) { pos++; totalSize += bytes[pos++]; pos++; }
+          }
+          localDefs[localType] = { globalMsgNum, bigEndian, fields, totalSize };
+        } else {
+          const def = localDefs[localType];
+          if (!def) break;
+
+          if (def.globalMsgNum === 20) {
+            records.push(readRecord(view, pos, def));
+          } else if (def.globalMsgNum === 12) {
+            let p = pos;
+            for (const { fNum, fSize } of def.fields) {
+              if (fSize === 1 && bytes[p] !== 0xFF) {
+                if (fNum === 0) fitSport = bytes[p];
+                if (fNum === 1) fitSubSport = bytes[p];
+              }
+              p += fSize;
+            }
+          }
+          pos += def.totalSize;
+        }
+      }
+      return { records, sport: fitSport, subSport: fitSubSport };
+    }
+
+    function readRecord(view, startPos, def) {
+      const le = !def.bigEndian;
+      let pos = startPos;
+      const r = {};
+      for (const { fNum, fSize, isSigned, isFloat } of def.fields) {
+        let raw = null;
+        try {
+          if (fSize === 1) raw = isSigned ? view.getInt8(pos) : view.getUint8(pos);
+          else if (fSize === 2) raw = isSigned ? view.getInt16(pos, le) : view.getUint16(pos, le);
+          else if (fSize === 4 && isFloat) raw = view.getFloat32(pos, le);
+          else if (fSize === 4) raw = isSigned ? view.getInt32(pos, le) : view.getUint32(pos, le);
+          else if (fSize === 8 && isFloat) raw = view.getFloat64(pos, le);
+        } catch (_) { }
+        pos += fSize;
+        if (raw == null) continue;
+
+        if (!isFloat) {
+          if (fSize === 1 && !isSigned && raw === 0xFF) continue;
+          if (fSize === 1 && isSigned && raw === 0x7F) continue;
+          if (fSize === 2 && !isSigned && raw === 0xFFFF) continue;
+          if (fSize === 2 && isSigned && raw === 0x7FFF) continue;
+          if (fSize === 4 && !isSigned && raw === 0xFFFFFFFF) continue;
+          if (fSize === 4 && isSigned && raw === 0x7FFFFFFF) continue;
+        }
+
+        switch (fNum) {
+          case 253: r.timestamp = new Date(raw * 1000 + FIT_EPOCH_MS); break;
+          case 0: r.lat = raw * SEMI_TO_DEG; break;
+          case 1: r.lon = raw * SEMI_TO_DEG; break;
+          case 2: r.ele = raw / 5 - 500; break;
+          case 78: r.ele = raw / 5 - 500; break;
+          case 3: r.hr = raw; break;
+          case 4: r.cad = raw; break;
+          case 7: r.power = raw; break;
+          case 6: r.speedRaw = raw / 1000; break;
+        }
+      }
+      return r;
+    }
+
+    function fitSportToCategory(sport, subSport) {
+      const sub = {
+        46: 'gravelride', 7: 'cycling', 8: 'mountainbike',
+        2: 'running', 3: 'trailrun', 1: 'running', 45: 'running',
+      };
+      if (subSport != null && sub[subSport]) return sub[subSport];
+      const s = { 1: 'running', 2: 'cycling', 11: 'walking', 17: 'hiking', 5: 'swimming', 13: 'skiing' };
+      return s[sport] || 'other';
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  GZIP DECOMPRESSOR
+    // ═══════════════════════════════════════════════════════════
+    async function decompressGzip(arrayBuffer) {
+      if (!('DecompressionStream' in window))
+        throw new Error('Browser unterstützt keine automatische Entpackung (Chrome 80+, Firefox 113+, Safari 16.4+ nötig).');
+      const stream = new Blob([arrayBuffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(stream).arrayBuffer();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  GPX PARSER
+    // ═══════════════════════════════════════════════════════════
+    function findDesc(el, localName) {
+      const all = el.getElementsByTagName('*');
+      for (const node of all) if (node.localName && node.localName.toLowerCase() === localName) return node;
+      return null;
+    }
+
+    function parseGPX(text) {
+      const doc = new DOMParser().parseFromString(text, 'application/xml');
+      if (doc.querySelector('parsererror')) throw new Error('Ungültige GPX-Datei');
+      const trkTypeEl = findDesc(doc.documentElement, 'type');
+      const typeText = (trkTypeEl && trkTypeEl.textContent || '').trim().toLowerCase();
+      const typeMap = {
+        run: 'running', running: 'running', trail_running: 'trailrun', trailrun: 'trailrun',
+        ride: 'cycling', cycling: 'cycling', biking: 'cycling', mountain_biking: 'mountainbike', mtb: 'mountainbike',
+        gravel_cycling: 'gravelride', hike: 'hiking', hiking: 'hiking', walk: 'walking', walking: 'walking',
+        swim: 'swimming', swimming: 'swimming', ski: 'skiing', skiing: 'skiing'
+      };
+      const sport = typeMap[typeText] || 'other';
+
+      const trkpts = doc.getElementsByTagName('trkpt');
+      const records = [];
+      for (const pt of trkpts) {
+        const lat = parseFloat(pt.getAttribute('lat'));
+        const lon = parseFloat(pt.getAttribute('lon'));
+        if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+        const r = { lat, lon };
+        const eleEl = findDesc(pt, 'ele'); if (eleEl) r.ele = parseFloat(eleEl.textContent);
+        const timeEl = findDesc(pt, 'time'); if (timeEl) r.timestamp = new Date(timeEl.textContent);
+        const hrEl = findDesc(pt, 'hr'); if (hrEl) r.hr = parseInt(hrEl.textContent, 10);
+        const cadEl = findDesc(pt, 'cad'); if (cadEl) r.cad = parseInt(cadEl.textContent, 10);
+        records.push(r);
+      }
+      return { records, sport };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  GEO / ACTIVITY MATH
+    // ═══════════════════════════════════════════════════════════
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371000, toRad = d => d * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    const FOOT_SPORTS = ['running', 'trailrun', 'walking', 'hiking'];
+    const WHEEL_SPORTS = ['cycling', 'mountainbike', 'gravelride', 'skiing'];
+
+    const SPORT_META = {
+      running: { label: 'Lauf', color: '#FC4C02', icon: '🏃' },
+      trailrun: { label: 'Trail Lauf', color: '#E06A00', icon: '⛰️' },
+      walking: { label: 'Spaziergang', color: '#8A8F94', icon: '🚶' },
+      hiking: { label: 'Wanderung', color: '#3F7D4A', icon: '🥾' },
+      cycling: { label: 'Rad', color: '#0A6CFF', icon: '🚴' },
+      mountainbike: { label: 'Mountainbike', color: '#0A6CFF', icon: '🚵' },
+      gravelride: { label: 'Gravel', color: '#B08D57', icon: '🚴' },
+      swimming: { label: 'Schwimmen', color: '#00AEC7', icon: '🏊' },
+      skiing: { label: 'Ski', color: '#8E44AD', icon: '⛷️' },
+      other: { label: 'Workout', color: '#B5651D', icon: '⚡' },
+    };
+
+    function buildActivity(records, sportGuess, fileName) {
+      const pts = records.filter(r => r.lat != null && r.lon != null)
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      if (!pts.length) throw new Error('Keine GPS-Daten in dieser Datei gefunden');
+
+      let distM = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const d = haversine(pts[i - 1].lat, pts[i - 1].lon, pts[i].lat, pts[i].lon);
+        if (d < 200) distM += d; // ignore obvious GPS jumps
+      }
+
+      const times = pts.map(p => p.timestamp).filter(Boolean);
+      const start = times.length ? times[0] : null;
+      const end = times.length ? times[times.length - 1] : null;
+      const durationSec = (start && end) ? Math.max(1, (end - start) / 1000) : null;
+
+      let elevGain = 0;
+      const elevs = pts.map(p => p.ele).filter(e => e != null);
+      for (let i = 1; i < elevs.length; i++) {
+        const diff = elevs[i] - elevs[i - 1];
+        if (diff > 0.5) elevGain += diff;
+      }
+
+      const hrs = pts.map(p => p.hr).filter(h => h != null && h > 0);
+      const avgHR = hrs.length ? hrs.reduce((a, b) => a + b, 0) / hrs.length : null;
+      const maxHR = hrs.length ? Math.max(...hrs) : null;
+      const cads = pts.map(p => p.cad).filter(c => c != null && c > 0);
+      const avgCad = cads.length ? cads.reduce((a, b) => a + b, 0) / cads.length : null;
+
+      const distanceKm = distM / 1000;
+      const speedKmh = durationSec ? distanceKm / (durationSec / 3600) : 0;
+
+      return {
+        id: 'a' + Math.random().toString(36).slice(2, 10),
+        fileName,
+        sport: sportGuess,
+        start,
+        durationSec,
+        distanceKm,
+        speedKmh,
+        elevGain,
+        avgHR, maxHR, avgCad,
+        points: pts,
+      };
+    }
+
+    function isFoot(sport) { return FOOT_SPORTS.includes(sport); }
+    function isSwim(sport) { return sport === 'swimming'; }
+
+    function fmtPaceOrSpeed(a) {
+      if (!a.speedKmh || !isFinite(a.speedKmh) || a.speedKmh <= 0) return { val: '—', unit: '' };
+      if (isSwim(a.sport)) {
+        const paceSec = (a.durationSec / (a.distanceKm * 10)); // per 100m
+        if (!isFinite(paceSec) || paceSec <= 0) return { val: '—', unit: '' };
+        return { val: `${Math.floor(paceSec / 60)}:${String(Math.round(paceSec % 60)).padStart(2, '0')}`, unit: '/100m' };
+      }
+      if (isFoot(a.sport)) {
+        const paceMin = 60 / a.speedKmh;
+        if (!isFinite(paceMin)) return { val: '—', unit: '' };
+        const m = Math.floor(paceMin), s = Math.round((paceMin - m) * 60);
+        return { val: `${m}:${String(s).padStart(2, '0')}`, unit: '/km' };
+      }
+      return { val: a.speedKmh.toFixed(1), unit: 'km/h' };
+    }
+
+    function fmtDuration(sec) {
+      if (!sec) return '—';
+      const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.round(sec % 60);
+      return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function fmtDurationHM(sec) {
+      const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+      return h > 0 ? `${h} Std ${m} Min` : `${m} Min`;
+    }
+
+    function fmtDate(d) {
+      if (!d) return 'Unbekanntes Datum';
+      return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) +
+        ' · ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function mondayOf(date) {
+      const d = new Date(date); const day = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - day); d.setHours(0, 0, 0, 0); return d;
+    }
+    function monthKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
+    function dayKey(date) { const d = new Date(date); d.setHours(0, 0, 0, 0); return d.getTime(); }
+
+    // ═══════════════════════════════════════════════════════════
+    //  APP STATE
+    // ═══════════════════════════════════════════════════════════
+    let activities = [];
+    let customCharts = []; // {id, metric, group, sport, type}
+    let nextCustomId = 1;
+
+    const $ = id => document.getElementById(id);
+
+    // ═══════════════════════════════════════════════════════════
+    //  SCREEN SWITCH
+    // ═══════════════════════════════════════════════════════════
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  FILE HANDLING
+    // ═══════════════════════════════════════════════════════════
+    const dropzone = $('dropzone'), fileInput = $('fileInput');
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('drag-over'); handleFiles([...e.dataTransfer.files]); });
+    dropzone.addEventListener('click', () => fileInput.click());
+    $('browseBtn').addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+    fileInput.addEventListener('change', e => { handleFiles([...e.target.files]); e.target.value = ''; });
+    $('addMoreBtn').addEventListener('click', () => { showScreen('uploadScreen'); });
+    $('clearAllBtn').addEventListener('click', () => {
+      if (!confirm('Wirklich alle geladenen Aktivitäten entfernen?')) return;
+      activities = []; customCharts = []; showScreen('uploadScreen');
+    });
+
+    function readAsBuffer(file) {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result);
+        r.onerror = () => rej(new Error('Datei konnte nicht gelesen werden'));
+        r.readAsArrayBuffer(file);
+      });
+    }
+    function readAsText(file) {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result);
+        r.onerror = () => rej(new Error('Datei konnte nicht gelesen werden'));
+        r.readAsText(file);
+      });
+    }
+
+    async function handleFiles(fileList) {
+      const valid = fileList.filter(f => /\.(gpx|fit|fit\.gz|gz)$/i.test(f.name));
+      if (!valid.length) return;
+
+      $('parsingBar').classList.add('show');
+      $('parsingLabel').classList.add('show');
+      let done = 0;
+
+      for (const file of valid) {
+        $('parsingLabel').textContent = `Verarbeite ${file.name}…`;
+        try {
+          const name = file.name.toLowerCase();
+          let records, sport, srcName = file.name;
+          if (name.endsWith('.gpx')) {
+            const text = await readAsText(file);
+            const parsed = parseGPX(text);
+            records = parsed.records; sport = parsed.sport;
+          } else if (name.endsWith('.fit.gz') || name.endsWith('.gz')) {
+            const buf = await readAsBuffer(file);
+            const fitBuf = await decompressGzip(buf);
+            const parsed = parseFIT(fitBuf);
+            records = parsed.records; sport = fitSportToCategory(parsed.sport, parsed.subSport);
+          } else if (name.endsWith('.fit')) {
+            const buf = await readAsBuffer(file);
+            const parsed = parseFIT(buf);
+            records = parsed.records; sport = fitSportToCategory(parsed.sport, parsed.subSport);
+          } else { continue; }
+
+          const activity = buildActivity(records, sport, srcName);
+          activities.push(activity);
+        } catch (err) {
+          console.warn(`Fehler bei ${file.name}:`, err.message);
+        }
+        done++;
+        $('parsingFill').style.width = Math.round((done / valid.length) * 100) + '%';
+      }
+
+      setTimeout(() => {
+        $('parsingBar').classList.remove('show');
+        $('parsingLabel').classList.remove('show');
+        $('parsingFill').style.width = '0%';
+      }, 400);
+
+      if (activities.length) {
+        activities.sort((a, b) => (b.start || 0) - (a.start || 0));
+        renderDashboard();
+        showScreen('dashboard');
+      } else {
+        alert('Es konnten keine gültigen Aktivitäten aus den ausgewählten Dateien gelesen werden.');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  DASHBOARD RENDER
+    // ═══════════════════════════════════════════════════════════
+    function currentSportFilter() { return $('sportFilter').value; }
+    function filteredActivities(sportFilterOverride) {
+      const f = sportFilterOverride !== undefined ? sportFilterOverride : currentSportFilter();
+      return f === 'all' ? activities : activities.filter(a => a.sport === f);
+    }
+
+    function populateSportSelects() {
+      const present = [...new Set(activities.map(a => a.sport))];
+      const opts = ['<option value="all">Alle Sportarten</option>']
+        .concat(present.map(s => `<option value="${s}">${SPORT_META[s].icon} ${SPORT_META[s].label}</option>`));
+      $('sportFilter').innerHTML = opts.join('');
+      $('cbSport').innerHTML = opts.join('');
+    }
+
+    function renderDashboard() {
+      populateSportSelects();
+      renderStats();
+      renderFeed();
+      renderHeatCalendar();
+      renderAutoCharts();
+      renderCustomCharts();
+    }
+
+    function renderStats() {
+      const list = filteredActivities();
+      const totalDist = list.reduce((s, a) => s + a.distanceKm, 0);
+      const totalDur = list.reduce((s, a) => s + (a.durationSec || 0), 0);
+      const totalElev = list.reduce((s, a) => s + a.elevGain, 0);
+      const withHR = list.filter(a => a.avgHR);
+      const avgHR = withHR.length ? withHR.reduce((s, a) => s + a.avgHR, 0) / withHR.length : null;
+
+      $('statRow').innerHTML = `
+    <div class="stat-card"><div class="lbl">Aktivitäten</div><div class="val">${list.length}</div></div>
+    <div class="stat-card"><div class="lbl">Gesamtdistanz</div><div class="val">${totalDist.toFixed(1)}<small>km</small></div></div>
+    <div class="stat-card"><div class="lbl">Gesamtzeit</div><div class="val">${(totalDur / 3600).toFixed(1)}<small>h</small></div></div>
+    <div class="stat-card"><div class="lbl">Höhenmeter</div><div class="val">${Math.round(totalElev)}<small>m</small></div></div>
+    <div class="stat-card"><div class="lbl">Ø Herzfrequenz</div><div class="val">${avgHR ? Math.round(avgHR) : '—'}<small>${avgHR ? 'bpm' : ''}</small></div></div>
+  `;
+      $('heroCountUp').textContent = activities.length;
+    }
+
+    function sortActivities(list, mode) {
+      const arr = [...list];
+      switch (mode) {
+        case 'date_asc': return arr.sort((a, b) => (a.start || 0) - (b.start || 0));
+        case 'dist_desc': return arr.sort((a, b) => b.distanceKm - a.distanceKm);
+        case 'dist_asc': return arr.sort((a, b) => a.distanceKm - b.distanceKm);
+        case 'pace_fast': return arr.sort((a, b) => b.speedKmh - a.speedKmh);
+        case 'pace_slow': return arr.sort((a, b) => a.speedKmh - b.speedKmh);
+        case 'dur_desc': return arr.sort((a, b) => (b.durationSec || 0) - (a.durationSec || 0));
+        case 'hr_desc': return arr.sort((a, b) => (b.avgHR || 0) - (a.avgHR || 0));
+        default: return arr.sort((a, b) => (b.start || 0) - (a.start || 0));
+      }
+    }
+
+    function renderFeed() {
+      const list = sortActivities(filteredActivities(), $('sortSelect').value);
+      $('feedCount').textContent = `${list.length} Aktivität${list.length === 1 ? '' : 'en'}`;
+      const feed = $('feedList');
+
+      if (!list.length) {
+        feed.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M9 15c1 1 5 1 6 0"/></svg>
+      <div>Keine Aktivitäten für diesen Filter.</div>
+    </div>`;
+        return;
+      }
+
+      feed.innerHTML = list.map(a => {
+        const meta = SPORT_META[a.sport];
+        const pace = fmtPaceOrSpeed(a);
+        return `<div class="activity-card" data-id="${a.id}">
+      <div class="sport-badge" style="background:${meta.color}22;">${meta.icon}</div>
+      <div class="ac-main">
+        <div class="name">${escapeHtml(a.fileName.replace(/\.(fit|gpx|gz)$/i, ''))}</div>
+        <div class="meta">${fmtDate(a.start)}</div>
+        <select class="select sport-select" data-id="${a.id}">
+          ${Object.entries(SPORT_META).map(([k, v]) => `<option value="${k}" ${k === a.sport ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="ac-metrics">
+        <div><b>${a.distanceKm.toFixed(2)}</b><span>km</span></div>
+        <div><b>${fmtDuration(a.durationSec)}</b><span>Dauer</span></div>
+        <div><b>${pace.val}</b><span>${pace.unit || 'Pace'}</span></div>
+        ${a.avgHR ? `<div><b>${Math.round(a.avgHR)}</b><span>Ø bpm</span></div>` : ''}
+      </div>
+    </div>`;
+      }).join('');
+
+      feed.querySelectorAll('.activity-card').forEach(card => {
+        card.addEventListener('click', e => {
+          if (e.target.closest('select')) return;
+          openModal(card.dataset.id);
+        });
+      });
+      feed.querySelectorAll('.sport-select').forEach(sel => {
+        sel.addEventListener('click', e => e.stopPropagation());
+        sel.addEventListener('change', e => {
+          const act = activities.find(a => a.id === e.target.dataset.id);
+          if (act) { act.sport = e.target.value; renderDashboard(); }
+        });
+      });
+    }
+
+    $('sportFilter').addEventListener('change', () => { renderStats(); renderFeed(); renderHeatCalendar(); renderAutoCharts(); });
+    $('sortSelect').addEventListener('change', renderFeed);
+
+    function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    // ═══════════════════════════════════════════════════════════
+    //  HEAT CALENDAR (signature element)
+    // ═══════════════════════════════════════════════════════════
+    function renderHeatCalendar() {
+      const list = filteredActivities();
+      const byDay = {};
+      list.forEach(a => { if (!a.start) return; const k = dayKey(a.start); byDay[k] = (byDay[k] || 0) + a.distanceKm; });
+
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const weeks = 26;
+      const start = mondayOf(new Date(today.getTime() - weeks * 7 * 86400000));
+      const cells = [];
+      let maxVal = 0.0001;
+      for (let i = 0; i < weeks * 7; i++) {
+        const d = new Date(start.getTime() + i * 86400000);
+        const v = byDay[dayKey(d)] || 0;
+        if (v > maxVal) maxVal = v;
+        cells.push({ d, v });
+      }
+      $('heatGrid').innerHTML = cells.map(c => {
+        let level = 0;
+        if (c.v > 0) level = c.v > maxVal * 0.75 ? 4 : c.v > maxVal * 0.45 ? 3 : c.v > maxVal * 0.15 ? 2 : 1;
+        const label = `${c.d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}: ${c.v > 0 ? c.v.toFixed(1) + ' km' : 'Ruhetag'}`;
+        return `<div class="heat-cell" data-level="${level}" title="${label}"></div>`;
+      }).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  GENERIC CANVAS CHART ENGINE
+    // ═══════════════════════════════════════════════════════════
+    function renderChart(canvas, labels, values, opts = {}) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width || canvas.parentElement.clientWidth, h = canvas.clientHeight || 150;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      if (!values.length || values.every(v => !v)) {
+        ctx.fillStyle = '#B9B6AF'; ctx.font = '13px Inter'; ctx.textAlign = 'center';
+        ctx.fillText('Keine Daten verfügbar', w / 2, h / 2);
+        canvas._chartData = null;
+        return;
+      }
+
+      const padL = 38, padR = 8, padT = 10, padB = 22;
+      const chartW = w - padL - padR, chartH = h - padT - padB;
+      const maxVal = Math.max(...values) * 1.18 || 1;
+      const color = opts.color || '#FC4C02';
+
+      ctx.strokeStyle = '#F0EEEA'; ctx.lineWidth = 1;
+      ctx.fillStyle = '#8A8F94'; ctx.font = '10px Inter'; ctx.textAlign = 'right';
+      for (let i = 0; i <= 3; i++) {
+        const y = padT + chartH - (i / 3) * chartH;
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+        ctx.fillText(opts.yFmt ? opts.yFmt(maxVal * i / 3) : Math.round(maxVal * i / 3), padL - 6, y + 3);
+      }
+
+      const n = values.length;
+      const points = [];
+
+      if (opts.type === 'line') {
+        ctx.beginPath();
+        values.forEach((v, i) => {
+          const x = padL + (n === 1 ? chartW / 2 : (i / (n - 1)) * chartW);
+          const y = padT + chartH - (v / maxVal) * chartH;
+          points.push({ x, y, v, label: labels[i] });
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.stroke();
+        const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+        grad.addColorStop(0, color + '33'); grad.addColorStop(1, color + '00');
+        ctx.lineTo(points[n - 1].x, padT + chartH); ctx.lineTo(points[0].x, padT + chartH); ctx.closePath();
+        ctx.fillStyle = grad; ctx.fill();
+        points.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, 7); ctx.fillStyle = color; ctx.fill(); });
+      } else {
+        const bw = Math.min(34, chartW / n * 0.6);
+        values.forEach((v, i) => {
+          const cx = padL + (n === 1 ? chartW / 2 : (i / Math.max(1, n - 1)) * chartW);
+          const bh = (v / maxVal) * chartH;
+          const x = cx - bw / 2, y = padT + chartH - bh;
+          ctx.fillStyle = color;
+          roundRectTop(ctx, x, y, bw, bh, 4); ctx.fill();
+          points.push({ x: cx, y, v, label: labels[i] });
+        });
+      }
+
+      ctx.fillStyle = '#8A8F94'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
+      const step = Math.max(1, Math.ceil(n / 8));
+      labels.forEach((l, i) => { if (i % step === 0 || i === n - 1) ctx.fillText(l, points[i].x, h - 6); });
+
+      canvas._chartData = points;
+    }
+    function roundRectTop(ctx, x, y, w, h, r) {
+      if (h < r) r = h;
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h);
+      ctx.closePath();
+    }
+
+    function attachTooltip(canvas, fmt) {
+      let tip = canvas.parentElement.querySelector('.chart-tooltip');
+      if (!tip) { tip = document.createElement('div'); tip.className = 'chart-tooltip'; canvas.parentElement.style.position = 'relative'; canvas.parentElement.appendChild(tip); }
+      canvas.addEventListener('mousemove', e => {
+        const pts = canvas._chartData; if (!pts) { tip.classList.remove('show'); return; }
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        let nearest = pts[0], best = Infinity;
+        pts.forEach(p => { const d = Math.abs(p.x - mx); if (d < best) { best = d; nearest = p; } });
+        tip.style.left = nearest.x + 'px'; tip.style.top = nearest.y + 'px';
+        tip.textContent = `${nearest.label}: ${fmt(nearest.v)}`;
+        tip.classList.add('show');
+      });
+      canvas.addEventListener('mouseleave', () => tip.classList.remove('show'));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  AUTO CHARTS
+    // ═══════════════════════════════════════════════════════════
+    function groupByWeek(list) {
+      const map = new Map();
+      list.forEach(a => {
+        if (!a.start) return;
+        const k = mondayOf(a.start).getTime();
+        if (!map.has(k)) map.set(k, []);
+        map.get(k).push(a);
+      });
+      return [...map.entries()].sort((a, b) => a[0] - b[0]).slice(-16);
+    }
+
+    function renderAutoCharts() {
+      const list = filteredActivities();
+      const weeks = groupByWeek(list);
+      const labels = weeks.map(([k]) => new Date(k).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' }));
+
+      const distVals = weeks.map(([, acts]) => acts.reduce((s, a) => s + a.distanceKm, 0));
+      renderChart($('chartWeeklyDist'), labels, distVals, { type: 'bar', color: '#FC4C02', yFmt: v => v.toFixed(0) });
+      attachTooltip($('chartWeeklyDist'), v => v.toFixed(1) + ' km');
+
+      const footFilter = FOOT_SPORTS.includes(currentSportFilter());
+      const paceVals = weeks.map(([, acts]) => {
+        const avgSpeed = acts.reduce((s, a) => s + a.speedKmh, 0) / acts.length;
+        return footFilter && avgSpeed > 0 ? 60 / avgSpeed : avgSpeed;
+      });
+      renderChart($('chartWeeklyPace'), labels, paceVals, { type: 'line', color: '#0A6CFF', yFmt: v => footFilter ? v.toFixed(0) + "'" : v.toFixed(0) });
+      attachTooltip($('chartWeeklyPace'), v => footFilter ? `${Math.floor(v)}:${String(Math.round((v % 1) * 60)).padStart(2, '0')} /km` : v.toFixed(1) + ' km/h');
+
+      const countVals = weeks.map(([, acts]) => acts.length);
+      renderChart($('chartWeeklyCount'), labels, countVals, { type: 'bar', color: '#3F7D4A' });
+      attachTooltip($('chartWeeklyCount'), v => Math.round(v) + 'x');
+
+      const hourBuckets = new Array(24).fill(0);
+      list.forEach(a => { if (a.start) hourBuckets[a.start.getHours()]++; });
+      renderChart($('chartTimeOfDay'), hourBuckets.map((_, i) => i + 'h'), hourBuckets, { type: 'bar', color: '#8E44AD' });
+      attachTooltip($('chartTimeOfDay'), v => Math.round(v) + ' Aktivitäten');
+
+      const hrList = list.map(a => a.avgHR).filter(Boolean);
+      $('hrPanel').style.display = hrList.length ? '' : 'none';
+      if (hrList.length) {
+        const bins = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200];
+        const counts = new Array(bins.length).fill(0);
+        hrList.forEach(hr => { for (let i = bins.length - 1; i >= 0; i--) if (hr >= bins[i]) { counts[i]++; break; } if (hr < bins[0]) counts[0]++; });
+        renderChart($('chartHR'), bins.map(b => b + ''), counts, { type: 'bar', color: '#E4572E' });
+        attachTooltip($('chartHR'), v => Math.round(v) + ' Aktivitäten');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  CUSTOM CHART BUILDER
+    // ═══════════════════════════════════════════════════════════
+    $('cbAdd').addEventListener('click', () => {
+      customCharts.push({
+        id: nextCustomId++,
+        metric: $('cbMetric').value,
+        group: $('cbGroup').value,
+        sport: $('cbSport').value,
+        type: $('cbType').value,
+      });
+      renderCustomCharts();
+    });
+
+    function keyForGroup(date, group) {
+      if (group === 'day') return dayKey(date);
+      if (group === 'month') return monthKey(date);
+      return mondayOf(date).getTime();
+    }
+    function labelForGroup(key, group) {
+      if (group === 'month') { const [y, m] = key.split('-'); return new Date(y, m - 1, 1).toLocaleDateString('de-DE', { month: 'short', year: '2-digit' }); }
+      return new Date(key).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+    }
+    const METRIC_META = {
+      distance: { label: 'Distanz', unit: 'km', color: '#FC4C02' },
+      duration: { label: 'Dauer', unit: 'h', color: '#0A6CFF' },
+      speed: { label: 'Ø Geschwindigkeit', unit: 'km/h', color: '#3F7D4A' },
+      hr: { label: 'Ø Herzfrequenz', unit: 'bpm', color: '#E4572E' },
+      elevation: { label: 'Höhenmeter', unit: 'm', color: '#8E44AD' },
+      count: { label: 'Anzahl', unit: '', color: '#B08D57' },
+    };
+
+    function computeCustomSeries(cfg) {
+      const list = filteredActivities(cfg.sport).filter(a => a.start);
+      const groups = new Map();
+      list.forEach(a => {
+        const k = keyForGroup(a.start, cfg.group);
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(a);
+      });
+      const sortedKeys = [...groups.keys()].sort((a, b) => (typeof a === 'string' ? a.localeCompare(b) : a - b)).slice(-20);
+      const labels = sortedKeys.map(k => labelForGroup(k, cfg.group));
+      const values = sortedKeys.map(k => {
+        const acts = groups.get(k);
+        switch (cfg.metric) {
+          case 'distance': return acts.reduce((s, a) => s + a.distanceKm, 0);
+          case 'duration': return acts.reduce((s, a) => s + (a.durationSec || 0), 0) / 3600;
+          case 'speed': return acts.reduce((s, a) => s + a.speedKmh, 0) / acts.length;
+          case 'hr': { const h = acts.map(a => a.avgHR).filter(Boolean); return h.length ? h.reduce((a, b) => a + b, 0) / h.length : 0; }
+          case 'elevation': return acts.reduce((s, a) => s + a.elevGain, 0);
+          case 'count': return acts.length;
+        }
+      });
+      return { labels, values };
+    }
+
+    function renderCustomCharts() {
+      const wrap = $('customCharts');
+      if (!customCharts.length) { wrap.innerHTML = ''; return; }
+      wrap.innerHTML = customCharts.map(cfg => {
+        const mm = METRIC_META[cfg.metric];
+        const sportLabel = cfg.sport === 'all' ? 'Alle Sportarten' : (SPORT_META[cfg.sport]?.label || cfg.sport);
+        return `<div class="custom-chart-card" data-cid="${cfg.id}">
+      <button class="remove" data-remove="${cfg.id}">✕</button>
+      <div style="font-weight:700;font-size:13.5px;margin-bottom:2px;"><span class="legend-dot" style="background:${mm.color}"></span>${mm.label} · ${sportLabel}</div>
+      <div style="font-size:11px;color:var(--ink-faint);margin-bottom:10px;">gruppiert nach ${cfg.group === 'day' ? 'Tag' : cfg.group === 'week' ? 'Woche' : 'Monat'}</div>
+      <canvas id="ccanvas${cfg.id}" style="width:100%;height:140px;display:block;"></canvas>
+    </div>`;
+      }).join('');
+
+      customCharts.forEach(cfg => {
+        const { labels, values } = computeCustomSeries(cfg);
+        const canvas = $('ccanvas' + cfg.id);
+        renderChart(canvas, labels, values, { type: cfg.type, color: METRIC_META[cfg.metric].color });
+        attachTooltip(canvas, v => v.toFixed(1) + ' ' + METRIC_META[cfg.metric].unit);
+      });
+
+      wrap.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          customCharts = customCharts.filter(c => c.id !== +btn.dataset.remove);
+          renderCustomCharts();
+        });
+      });
+    }
+
+    window.addEventListener('resize', debounce(() => { if (document.getElementById('dashboard').classList.contains('active')) { renderAutoCharts(); renderCustomCharts(); } }, 200));
+    function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ACTIVITY DETAIL MODAL
+    // ═══════════════════════════════════════════════════════════
+    function openModal(id) {
+      const a = activities.find(x => x.id === id);
+      if (!a) return;
+      const meta = SPORT_META[a.sport];
+      const pace = fmtPaceOrSpeed(a);
+
+      $('modalBody').innerHTML = `
+    <div class="modal-head">
+      <div class="sport-badge" style="background:${meta.color}22;font-size:26px;">${meta.icon}</div>
+      <div>
+        <h2 style="font-size:26px;">${escapeHtml(a.fileName.replace(/\.(fit|gpx|gz)$/i, ''))}</h2>
+        <div style="color:var(--ink-faint);font-size:13px;">${fmtDate(a.start)} · ${meta.label}</div>
+      </div>
+    </div>
+    <svg class="track-preview" id="trackSvg" viewBox="0 0 300 190" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="modal-grid">
+      <div class="mstat"><b>${a.distanceKm.toFixed(2)} km</b><span>Distanz</span></div>
+      <div class="mstat"><b>${fmtDurationHM(a.durationSec || 0)}</b><span>Dauer</span></div>
+      <div class="mstat"><b>${pace.val}${pace.unit ? ' ' + pace.unit : ''}</b><span>Tempo</span></div>
+      <div class="mstat"><b>${Math.round(a.elevGain)} m</b><span>Höhenmeter</span></div>
+      ${a.avgHR ? `<div class="mstat"><b>${Math.round(a.avgHR)} bpm</b><span>Ø Herzfrequenz</span></div>` : ''}
+      ${a.maxHR ? `<div class="mstat"><b>${Math.round(a.maxHR)} bpm</b><span>Max Herzfrequenz</span></div>` : ''}
+      ${a.avgCad ? `<div class="mstat"><b>${Math.round(a.avgCad)}</b><span>Ø Kadenz</span></div>` : ''}
+      <div class="mstat"><b>${a.points.length}</b><span>GPS-Punkte</span></div>
+    </div>
+    <div style="font-weight:700;font-size:15px;margin:18px 0 8px;">Höhenprofil</div>
+    <canvas class="elev-preview" id="elevCanvas"></canvas>
+  `;
+
+      drawTrackSvg(a);
+      const hasEle = a.points.some(p => p.ele != null);
+      if (hasEle) {
+        const labels = a.points.map((_, i) => '');
+        const vals = a.points.map(p => p.ele != null ? p.ele : null);
+        // fill nulls with previous value to keep a continuous line
+        let last = vals.find(v => v != null) || 0;
+        const filled = vals.map(v => v == null ? last : (last = v));
+        renderChart($('elevCanvas'), labels, filled, { type: 'line', color: meta.color, yFmt: v => Math.round(v) + 'm' });
+      } else {
+        $('elevCanvas').parentElement.querySelector('#elevCanvas').style.display = 'none';
+      }
+
+      $('modalOverlay').classList.add('show');
+    }
+    function drawTrackSvg(a) {
+      const svg = $('trackSvg');
+      const lats = a.points.map(p => p.lat), lons = a.points.map(p => p.lon);
+      const minLat = Math.min(...lats), maxLat = Math.max(...lats), minLon = Math.min(...lons), maxLon = Math.max(...lons);
+      const w = 300, h = 190, pad = 14;
+      const latSpan = Math.max(maxLat - minLat, 1e-5), lonSpan = Math.max(maxLon - minLon, 1e-5);
+      const scale = Math.min((w - 2 * pad) / lonSpan, (h - 2 * pad) / latSpan);
+      const offX = (w - lonSpan * scale) / 2, offY = (h - latSpan * scale) / 2;
+      const pathPts = a.points.map(p => {
+        const x = offX + (p.lon - minLon) * scale;
+        const y = h - (offY + (p.lat - minLat) * scale);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      });
+      const meta = SPORT_META[a.sport];
+      svg.innerHTML = `
+    <polyline points="${pathPts.join(' ')}" fill="none" stroke="${meta.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${pathPts[0].split(',')[0]}" cy="${pathPts[0].split(',')[1]}" r="4" fill="#15181B"/>
+    <circle cx="${pathPts[pathPts.length - 1].split(',')[0]}" cy="${pathPts[pathPts.length - 1].split(',')[1]}" r="4" fill="${meta.color}"/>
+  `;
+    }
+    $('modalClose').addEventListener('click', () => $('modalOverlay').classList.remove('show'));
+    $('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') $('modalOverlay').classList.remove('show'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') $('modalOverlay').classList.remove('show'); });
+
+    // ── init ──
+    showScreen('uploadScreen');
+  </script>
+</body>
+
+</html>
