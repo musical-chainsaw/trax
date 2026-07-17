@@ -655,6 +655,13 @@
       font-size: 7.5px
     }
 
+    .chip-warn {
+      color: var(--warn);
+      font-size: 9px;
+      flex-shrink: 0;
+      cursor: help;
+    }
+
     .chip-pts {
       font-size: 7px;
       color: var(--mut);
@@ -901,6 +908,12 @@
       background: rgba(239, 83, 80, .15);
       border-color: rgba(239, 83, 80, .3);
       color: var(--err)
+    }
+
+    .toast.warn {
+      background: rgba(255, 183, 77, .15);
+      border-color: rgba(255, 183, 77, .3);
+      color: var(--warn)
     }
 
     .toast.info {
@@ -1328,11 +1341,11 @@ self.onmessage = function(e) {
       <div id="loading-msg"></div>
 
       <div id="global-dz">
-        <input type="file" id="global-input" accept=".gpx" multiple>
+        <input type="file" id="global-input" accept=".gpx,.fit,.gz" multiple>
         <span class="gdz-icon">⚡</span>
         <div class="gdz-txt">
           <div class="gdz-main">AUTO UPLOAD</div>
-          <div class="gdz-sub">Sport detected from file content</div>
+          <div class="gdz-sub">.gpx · .fit · .fit.gz — sport detected automatically</div>
         </div>
       </div>
       <p style="font-size: 12px; padding-left: 18px; background-color: var(--mut); border-radius: 4px; margin-left: 12px; margin-right: 12.5%;">Import routes above.</p>
@@ -1341,7 +1354,7 @@ self.onmessage = function(e) {
       <div id="sb-scroll">
         <div id="empty">
           <div class="empty-ring">◎</div>
-          <p>No routes yet.<br>Upload GPX files via ⚡<br>or create a sport.</p>
+          <p>No routes yet.<br>Upload GPX/FIT files via ⚡<br>or create a sport.</p>
         </div>
       </div>
       <button id="add-btn"><span class="plus">+</span><span>NEW SPORT</span></button>
@@ -1378,7 +1391,7 @@ self.onmessage = function(e) {
 
     <div id="map-wrap">
       <div id="map"></div>
-      <div id="hint">⬅ Upload GPX files or create a sport</div>
+      <div id="hint">⬅ Upload GPX/FIT files or create a sport</div>
     </div>
   </div>
 
@@ -1453,6 +1466,209 @@ self.onmessage = function(e) {
         workerTasks.set(id, { resolve, reject });
         worker.postMessage({ id, xml });
       });
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       FIT / GZ SUPPORT (ported from FIT Toolkit)
+       Converts .fit and .fit.gz files to GPX-XML in-memory, on the
+       main thread, so the result can flow through the exact same
+       parseGPXAsync() -> worker pipeline as native .gpx files.
+    ═══════════════════════════════════════════════════════════ */
+    const FIT_EPOCH_MS = 631065600000; // 1989-12-31T00:00:00Z
+    const SEMI_TO_DEG = 180 / 2147483648;
+
+    function parseFIT(arrayBuffer) {
+      const bytes = new Uint8Array(arrayBuffer);
+      const view = new DataView(arrayBuffer);
+      if (bytes.length < 12) throw new Error('File too small');
+      const headerSize = bytes[0];
+      const magic = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+      if (magic !== '.FIT') throw new Error('Not a valid .FIT file — missing signature');
+
+      const dataEnd = Math.min(headerSize + view.getUint32(4, true), bytes.length);
+      const localDefs = {};
+      const records = [];
+      let fitSport = null;
+      let fitSubSport = null;
+      let pos = headerSize;
+
+      while (pos < dataEnd && pos < bytes.length) {
+        const recHdr = bytes[pos++];
+
+        if (recHdr & 0x80) {
+          const def = localDefs[(recHdr >> 5) & 0x03];
+          if (!def) continue;
+          if (def.globalMsgNum === 20) records.push(readFITRecord(view, pos, def));
+          pos += def.totalSize;
+          continue;
+        }
+
+        const isDef = !!(recHdr & 0x40);
+        const hasDevData = !!(recHdr & 0x20);
+        const localType = recHdr & 0x0F;
+
+        if (isDef) {
+          pos++;
+          const bigEndian = bytes[pos++] === 1;
+          const globalMsgNum = view.getUint16(pos, !bigEndian); pos += 2;
+          const nFields = bytes[pos++];
+          const fields = [];
+          let totalSize = 0;
+          for (let i = 0; i < nFields; i++) {
+            const fNum = bytes[pos++];
+            const fSize = bytes[pos++];
+            const bType = bytes[pos++];
+            fields.push({
+              fNum, fSize,
+              isSigned: (bType === 0x01 || bType === 0x83 || bType === 0x85 || bType === 0x8B),
+              isFloat: (bType === 0x8D || bType === 0x8E)
+            });
+            totalSize += fSize;
+          }
+          if (hasDevData) {
+            const nDev = bytes[pos++];
+            for (let i = 0; i < nDev; i++) { pos++; totalSize += bytes[pos++]; pos++; }
+          }
+          localDefs[localType] = { globalMsgNum, bigEndian, fields, totalSize };
+        } else {
+          const def = localDefs[localType];
+          if (!def) break;
+
+          if (def.globalMsgNum === 20) {
+            records.push(readFITRecord(view, pos, def));
+          } else if (def.globalMsgNum === 12) {
+            let p = pos;
+            for (const { fNum, fSize } of def.fields) {
+              if (fSize === 1 && bytes[p] !== 0xFF) {
+                if (fNum === 0) fitSport = bytes[p];
+                if (fNum === 1) fitSubSport = bytes[p];
+              }
+              p += fSize;
+            }
+          }
+
+          pos += def.totalSize;
+        }
+      }
+
+      return { records, sport: fitSport, subSport: fitSubSport };
+    }
+
+    function readFITRecord(view, startPos, def) {
+      const le = !def.bigEndian;
+      let pos = startPos;
+      const r = {};
+
+      for (const { fNum, fSize, isSigned, isFloat } of def.fields) {
+        let raw = null;
+        try {
+          if (fSize === 1) raw = isSigned ? view.getInt8(pos) : view.getUint8(pos);
+          else if (fSize === 2) raw = isSigned ? view.getInt16(pos, le) : view.getUint16(pos, le);
+          else if (fSize === 4 && isFloat) raw = view.getFloat32(pos, le);
+          else if (fSize === 4) raw = isSigned ? view.getInt32(pos, le) : view.getUint32(pos, le);
+          else if (fSize === 8 && isFloat) raw = view.getFloat64(pos, le);
+        } catch (_) { }
+        pos += fSize;
+        if (raw == null) continue;
+
+        if (!isFloat) {
+          if (fSize === 1 && !isSigned && raw === 0xFF) continue;
+          if (fSize === 1 && isSigned && raw === 0x7F) continue;
+          if (fSize === 2 && !isSigned && raw === 0xFFFF) continue;
+          if (fSize === 2 && isSigned && raw === 0x7FFF) continue;
+          if (fSize === 4 && !isSigned && raw === 0xFFFFFFFF) continue;
+          if (fSize === 4 && isSigned && raw === 0x7FFFFFFF) continue;
+        }
+
+        switch (fNum) {
+          case 253: r.timestamp = new Date(raw * 1000 + FIT_EPOCH_MS); break;
+          case 0: r.position_lat = raw * SEMI_TO_DEG; break;
+          case 1: r.position_long = raw * SEMI_TO_DEG; break;
+          case 2: r.altitude = raw / 5 - 500; break;
+          case 78: r.altitude = raw / 5 - 500; break;
+          case 3: r.heart_rate = raw; break;
+          case 4: r.cadence = raw; break;
+          case 7: r.power = raw; break;
+          case 13: r.temperature = raw; break;
+          case 6: r.speed = raw / 1000; break;
+        }
+      }
+      return r;
+    }
+
+    function fitSportToGpxType(sport, subSport) {
+      const sub = {
+        46: 'gravelride', 7: 'cycling', 8: 'mountainbike',
+        2: 'running', 3: 'trailrun', 1: 'running', 45: 'running',
+      };
+      if (subSport != null && sub[subSport]) return sub[subSport];
+      const s = {
+        1: 'running', 2: 'cycling', 11: 'walking',
+        17: 'hiking', 5: 'swimming', 13: 'skiing',
+      };
+      return s[sport] || 'other';
+    }
+
+    function fitEscXml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function buildGPXFromFIT(records, trackName, sportType = '') {
+      const gps = records.filter(r => r.position_lat != null && r.position_long != null);
+      if (!gps.length) throw new Error('No GPS data found in this file');
+
+      const pts = gps.map(r => {
+        let inner = '';
+        if (r.altitude != null) inner += `\n        <ele>${r.altitude.toFixed(2)}</ele>`;
+        if (r.timestamp) inner += `\n        <time>${r.timestamp.toISOString()}</time>`;
+        const ext = [];
+        if (r.heart_rate != null) ext.push(`<gpxtpx:hr>${r.heart_rate}</gpxtpx:hr>`);
+        if (r.cadence != null) ext.push(`<gpxtpx:cad>${r.cadence}</gpxtpx:cad>`);
+        if (r.temperature != null) ext.push(`<gpxtpx:atemp>${r.temperature}</gpxtpx:atemp>`);
+        if (r.power != null) ext.push(`<power>${r.power}</power>`);
+        if (ext.length) inner += `\n        <extensions><gpxtpx:TrackPointExtension>${ext.join('')}</gpxtpx:TrackPointExtension></extensions>`;
+        return `      <trkpt lat="${r.position_lat.toFixed(7)}" lon="${r.position_long.toFixed(7)}">${inner}\n      </trkpt>`;
+      }).join('\n');
+
+      return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="TRAX"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <trk>
+    <name>${fitEscXml(trackName)}</name>
+    ${sportType ? `<type>${fitEscXml(sportType)}</type>` : ''}
+    <trkseg>
+${pts}
+    </trkseg>
+  </trk>
+</gpx>`;
+    }
+
+    async function decompressGzip(arrayBuffer) {
+      if (!('DecompressionStream' in window))
+        throw new Error('Browser lacks DecompressionStream. Use Chrome 80+, Firefox 113+, or Safari 16.4+.');
+      const stream = new Blob([arrayBuffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(stream).arrayBuffer();
+    }
+
+    // Turns any accepted upload (.gpx / .fit / .fit.gz) into a GPX-XML string.
+    async function toGpxXml(file) {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.gpx')) return file.text();
+
+      if (!lower.endsWith('.fit') && !lower.endsWith('.gz')) {
+        throw new Error('Unsupported file type');
+      }
+
+      const buf = await file.arrayBuffer();
+      const trackName = file.name.replace(/\.(fit\.gz|fit|gz)$/i, '');
+
+      const fitBuf = lower.endsWith('.gz') ? await decompressGzip(buf) : buf;
+      const { records, sport, subSport } = parseFIT(fitBuf);
+      return buildGPXFromFIT(records, trackName, fitSportToGpxType(sport, subSport));
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -1549,40 +1765,6 @@ self.onmessage = function(e) {
     /* ═══════════════════════════════════════════════════════════
        INDEXEDDB
     ═══════════════════════════════════════════════════════════ */
-    /* const IDB = (() => {
-      let db = null;
-      async function open() {
-        if (db) return;
-        db = await new Promise((res, rej) => {
-          const r = indexedDB.open('trax_v5', 1);
-          r.onupgradeneeded = e => {
-            const d = e.target.result;
-            if (!d.objectStoreNames.contains('sports')) d.createObjectStore('sports', {keyPath:'id'});
-            if (!d.objectStoreNames.contains('files'))  d.createObjectStore('files',  {keyPath:'id'});
-          };
-          r.onsuccess = e => { db = e.target.result; res(); };
-          r.onerror   = e => rej(e.target.error);
-        });
-      }
-      function tx(store, mode, fn) {
-        return new Promise((res, rej) => {
-          const t = db.transaction(store, mode), s = t.objectStore(store), q = fn(s);
-          if (q) { q.onsuccess = e => res(e.target.result); q.onerror = e => rej(e.target.error); }
-          else { t.oncomplete = () => res(); t.onerror = e => rej(e.target.error); }
-        });
-      }
-      return {
-        open,
-        put:    (store, obj) => tx(store, 'readwrite', s => s.put(obj)),
-        del:    (store, id)  => tx(store, 'readwrite', s => s.delete(id)),
-        getAll: (store)      => tx(store, 'readonly',  s => s.getAll()),
-      };
-    })();
-    */
-
-    /* CHATGPT BLOCK */
-
-
     const IDB = (() => {
       let db = null;
       let opening = null;
@@ -1652,9 +1834,6 @@ self.onmessage = function(e) {
       };
     })();
 
-
-
-
     /* ═══════════════════════════════════════════════════════════
        SPORT RULES
     ═══════════════════════════════════════════════════════════ */
@@ -1709,6 +1888,7 @@ self.onmessage = function(e) {
       'backcountry ski': 'Ski Touring', 'nordic ski': 'Nordic Ski', 'skitouring': 'Ski Touring',
       'kayaking': 'Kayaking', 'rowing': 'Rowing', 'standuppaddling': 'SUP', 'canoeing': 'Canoeing', 'sup': 'SUP',
       'yoga': 'Yoga', 'workout': 'Workout', 'weighttraining': 'Strength', 'crossfit': 'CrossFit', 'hiit': 'HIIT',
+      'gravelride_fit': 'Gravel', 'mountainbike': 'MTB', 'skiing': 'Ski', 'other': 'Other',
     };
 
     function detectKeyFromType(t) {
@@ -1720,7 +1900,7 @@ self.onmessage = function(e) {
       return null;
     }
     function detectKeyFromFile(fn) {
-      const base = fn.replace(/\.gpx$/i, '').replace(/[^a-zA-Z0-9]/g, ' ').toLowerCase();
+      const base = fn.replace(/\.(gpx|fit|gz)$/i, '').replace(/[^a-zA-Z0-9]/g, ' ').toLowerCase();
       const words = base.split(/\s+/).filter(w => w.length > 1);
       for (const r of RULES) {
         for (const kw of r.fileKw) {
@@ -1730,7 +1910,7 @@ self.onmessage = function(e) {
       return null;
     }
     function chipLabel(f) {
-      const name = f.activityName || f.name.replace(/\.gpx$/i, '');
+      const name = f.activityName || f.name.replace(/\.(gpx|fit|gz)$/i, '');
       const type = f.activityType ? (TYPE_NAMES[f.activityType] || null) : null;
       return type ? `${name} <em>(${type})</em>` : name;
     }
@@ -1947,10 +2127,45 @@ self.onmessage = function(e) {
     }
 
     /* ═══════════════════════════════════════════════════════════
+       DUPLICATE DETECTION
+       Content-based (not just filename), so the same activity
+       exported twice (e.g. once as .fit, once as .gpx) still gets
+       flagged. Never blocks the import — just warns, so nothing
+       is silently lost.
+    ═══════════════════════════════════════════════════════════ */
+    function isLikelyDuplicate(activityName, pts) {
+      if (!pts.length) return false;
+      const start = pts[0];
+      const norm = (activityName || '').trim().toLowerCase();
+
+      const all = [
+        ...sports.flatMap(s => s.files),
+        ...pending,
+      ];
+
+      return all.some(f => {
+        if (!f.pts || !f.pts.length) return false;
+        const sameLen = Math.abs(f.pts.length - pts.length) <= 2;
+        const sameName = norm && (f.activityName || '').trim().toLowerCase() === norm;
+        const sameStart =
+          Math.abs(f.pts[0][0] - start[0]) < 0.0005 &&
+          Math.abs(f.pts[0][1] - start[1]) < 0.0005;
+        return sameLen && (sameName || sameStart);
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════
        INGEST FILES (non-blocking via Worker)
+       Accepts .gpx, .fit, .fit.gz — non-GPX formats are converted
+       to GPX-XML first via toGpxXml(), then flow through the same
+       pipeline as native GPX uploads.
     ═══════════════════════════════════════════════════════════ */
     async function ingestFiles(fileList, targetSportId) {
-      const files = [...fileList].filter(f => f.name.toLowerCase().endsWith('.gpx'));
+      const SUPPORTED = ['.gpx', '.fit', '.gz'];
+      const files = [...fileList].filter(f => {
+        const n = f.name.toLowerCase();
+        return SUPPORTED.some(ext => n.endsWith(ext));
+      });
       if (!files.length) return;
 
       const allNames = new Set([
@@ -1963,11 +2178,18 @@ self.onmessage = function(e) {
 
       loadingStart(`Parsing ${fresh.length} file${fresh.length > 1 ? 's' : ''}…`);
       const bounds = [];
-      let done = 0, errCount = 0;
+      let done = 0, errCount = 0, dupCount = 0;
 
       for (const file of fresh) {
         let xml;
-        try { xml = await file.text(); } catch (e) { errCount++; done++; continue; }
+        try {
+          xml = await toGpxXml(file);
+        } catch (e) {
+          toast(`${file.name}: ${e.message}`, 'err');
+          errCount++; done++;
+          loadingProgress(Math.round(done / fresh.length * 90), `Parsing… (${done}/${fresh.length})`);
+          continue;
+        }
 
         let result;
         try {
@@ -1982,9 +2204,16 @@ self.onmessage = function(e) {
         const { pts, elevs, activityName, activityType } = result;
         if (!pts.length) { toast(`No track points in ${file.name}`, 'info'); done++; continue; }
 
+        const isDup = isLikelyDuplicate(activityName, pts);
+        if (isDup) {
+          dupCount++;
+          toast(`⚠ Possible duplicate: "${activityName || file.name}" looks like it's already loaded`, 'warn', 5000);
+        }
+
         const entry = {
           id: uid(), name: file.name, activityName, activityType, pts,
-          elevs: elevs.some(e => e != null) ? elevs : null
+          elevs: elevs.some(e => e != null) ? elevs : null,
+          dup: isDup,
         };
 
         let assignedId = targetSportId;
@@ -2028,7 +2257,7 @@ self.onmessage = function(e) {
 
       loadingDone();
       if (errCount) toast(`${errCount} file${errCount > 1 ? 's' : ''} failed to parse`, 'err');
-      else if (done > 0) toast(`${done - errCount} route${done > 1 ? 's' : ''} loaded`, 'ok');
+      else if (done > 0) toast(`${done - errCount} route${done > 1 ? 's' : ''} loaded${dupCount ? ` (${dupCount} possibly duplicate)` : ''}`, dupCount ? 'warn' : 'ok');
       render();
     }
 
@@ -2038,7 +2267,7 @@ self.onmessage = function(e) {
     async function assignFile(fileId, newSportId) {
       let entry = null, fromSport = null;
       const pi = pending.findIndex(f => f.id === fileId);
-      if (pi >= 0) { const p = pending.splice(pi, 1)[0]; entry = { id: p.id, name: p.name, activityName: p.activityName, activityType: p.activityType, pts: p.pts, elevs: p.elevs }; }
+      if (pi >= 0) { const p = pending.splice(pi, 1)[0]; entry = { id: p.id, name: p.name, activityName: p.activityName, activityType: p.activityType, pts: p.pts, elevs: p.elevs, dup: p.dup }; }
       if (!entry) {
         for (const s of sports) {
           const fi = s.files.findIndex(f => f.id === fileId);
@@ -2333,7 +2562,8 @@ self.onmessage = function(e) {
     <div class="pb-list">
       ${pending.map(f => `
         <div class="pb-row">
-          <span class="pb-name" title="${esc(f.name)}">${esc(f.activityName || f.name.replace(/\.gpx$/i, ''))}</span>
+          ${f.dup ? '<span class="chip-warn" title="Possible duplicate">⚠</span>' : ''}
+          <span class="pb-name" title="${esc(f.name)}">${esc(f.activityName || f.name.replace(/\.(gpx|fit|gz)$/i, ''))}</span>
           <span class="pb-pts">${fmt(f.ptCount)}pts</span>
           <select class="mini-sel assign-sel" data-fid="${f.id}"><option value="">Assign…</option>${sportOpts}</select>
           <button class="mini-del file-del" data-fid="${f.id}">✕</button>
@@ -2361,6 +2591,7 @@ self.onmessage = function(e) {
       const chips = sport.files.map(f => `
     <div class="chip">
       <span class="chip-dot" style="background:${sport.color}"></span>
+      ${f.dup ? '<span class="chip-warn" title="Possible duplicate">⚠</span>' : ''}
       <span class="chip-label">${chipLabel(f)}</span>
       <span class="chip-pts">${fmt(f.pts.length)}</span>
       <select class="mini-sel chip-assign" data-fid="${f.id}">${moveOpts}</select>
@@ -2380,9 +2611,9 @@ self.onmessage = function(e) {
     </div>
     <div class="sc-body">
       <div class="dz" style="--c:${sport.color}">
-        <input type="file" accept=".gpx" multiple>
+        <input type="file" accept=".gpx,.fit,.gz" multiple>
         <div class="dz-icon" style="color:${sport.color}">↑</div>
-        <div class="dz-txt">Drop GPX here or click to assign</div>
+        <div class="dz-txt">Drop GPX/FIT here or click to assign</div>
       </div>
       <div class="chip-list">${chips}</div>
     </div>`;
