@@ -3,14 +3,17 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover,maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
   <title>TRAX — GPX Heatmap</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <link
-    href="https://fonts.googleapis.com/css2?family=Antonio:wght@300;400;700&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;1,300&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
     rel="stylesheet">
   <style>
     *,
@@ -18,57 +21,117 @@
     *::after {
       box-sizing: border-box;
       margin: 0;
-      padding: 0
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
     }
 
     :root {
-      --bg: #07090d;
-      --sb: #0c0f15;
-      --card: #12161e;
-      --card2: #161b26;
-      --bd: rgba(255, 255, 255, .055);
-      --bdh: rgba(255, 255, 255, .13);
-      --text: #dde3f0;
-      --mut: #3d4a5c;
-      --mut2: #5a6a80;
-      --warn: #ffb74d;
-      --ok: #66bb6a;
-      --err: #ef5350;
-      --sw: 16vw;
+      --bg: #000000;
+      --bg2: #0a0a0d;
+      --sb: rgba(28, 28, 32, .55);
+      --card: rgba(255, 255, 255, .055);
+      --card2: rgba(255, 255, 255, .09);
+      --glass-bd: rgba(255, 255, 255, .10);
+      --glass-bd-hi: rgba(255, 255, 255, .22);
+      --glass-hi: rgba(255, 255, 255, .16);
+      --bd: rgba(255, 255, 255, .08);
+      --bdh: rgba(255, 255, 255, .18);
+      --text: rgba(255, 255, 255, .92);
+      --mut: rgba(235, 235, 245, .38);
+      --mut2: rgba(235, 235, 245, .62);
+      --accent: #0a84ff;
+      --accent2: #5e9cff;
+      --warn: #ff9f0a;
+      --ok: #30d158;
+      --err: #ff453a;
+      --sw: 340px;
+      --r-lg: 26px;
+      --r-md: 16px;
+      --r-sm: 11px;
+      --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      --font-mono: ui-monospace, 'SF Mono', 'IBM Plex Mono', 'Menlo', monospace;
+      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-l: env(safe-area-inset-left, 0px);
+      --safe-r: env(safe-area-inset-right, 0px);
     }
 
     html,
     body {
       height: 100%;
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: var(--font-ui);
       background: var(--bg);
       color: var(--text);
-      overflow: hidden
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background:
+        radial-gradient(ellipse 90% 60% at 15% 0%, rgba(60, 90, 160, .16), transparent 60%),
+        radial-gradient(ellipse 80% 60% at 100% 100%, rgba(120, 70, 200, .12), transparent 60%),
+        var(--bg);
+    }
+
+    /* Reusable liquid-glass surface: translucent, blurred, with a soft
+       top specular highlight and hairline edge — the recurring "material"
+       every panel in this UI is cut from. */
+    .glass {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .045) 40%, rgba(255, 255, 255, .035));
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--glass-bd);
+      position: relative;
+    }
+
+    .glass::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(160deg, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, .12));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      opacity: .6;
     }
 
     #app {
       display: flex;
       height: 100vh;
-      position: relative
+      height: 100dvh;
+      position: relative;
+      padding: max(10px, var(--safe-t)) max(10px, var(--safe-r)) max(10px, var(--safe-b)) max(10px, var(--safe-l));
+      gap: 10px;
     }
 
     /* ── SIDEBAR ── */
     #sidebar {
       width: var(--sw);
-      min-width: 330px;
+      min-width: 300px;
+      max-width: var(--sw);
       background: var(--sb);
-      border-right: 1px solid var(--bd);
+      -webkit-backdrop-filter: blur(34px) saturate(190%);
+      backdrop-filter: blur(34px) saturate(190%);
+      border: 1px solid var(--glass-bd);
+      border-radius: var(--r-lg);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .08);
       display: flex;
       flex-direction: column;
       overflow: hidden;
       z-index: 200;
-      transition: transform .3s ease;
+      transition: transform .35s cubic-bezier(.32, .72, 0, 1);
+      position: relative;
     }
 
     #app.focus #sidebar {
-      transform: translateX(calc(-1 * var(--sw)));
+      transform: translateX(calc(-1 * var(--sw) - 24px));
       position: absolute;
-      height: 100%
+      top: max(10px, var(--safe-t));
+      bottom: max(10px, var(--safe-b));
+      left: max(10px, var(--safe-l));
     }
 
     #app.focus #map-wrap {
@@ -76,67 +139,105 @@
     }
 
     #sb-head {
-      padding: 14px 15px 11px;
+      padding: 18px 18px 13px;
       border-bottom: 1px solid var(--bd);
       flex-shrink: 0
     }
 
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .logo-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      flex-shrink: 0;
+      background: linear-gradient(140deg, #3a82ff, #7c4dff 65%, #ff69b4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(60, 120, 255, .35), inset 0 1px 0 rgba(255, 255, 255, .35);
+    }
+
+    .logo-mark svg {
+      display: block
+    }
+
     .logo {
-      font-family: 'Antonio', sans-serif;
-      font-size: 25px;
-      font-weight: 700;
-      letter-spacing: 6px;
+      font-family: var(--font-ui);
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -.2px;
       color: #fff;
       line-height: 1
     }
 
     .logo-sub {
-      font-size: 7.5px;
-      letter-spacing: 2.5px;
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: .1px;
       color: var(--mut);
-      margin-top: 3px
+      margin-top: 2px
     }
 
     .head-row {
       display: flex;
-      gap: 5px;
-      margin-top: 10px
+      gap: 6px;
+      margin-top: 13px
     }
 
     .hbtn {
       flex: 1;
-      padding: 6px 7px;
+      padding: 9px 7px;
       background: var(--card);
-      border: 1px solid var(--bdh);
-      border-radius: 6px;
+      border: 1px solid var(--bd);
+      border-radius: 11px;
       color: var(--mut2);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 8px;
-      letter-spacing: 1px;
+      font-family: var(--font-ui);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .1px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      transition: all .18s;
+      gap: 5px;
+      transition: transform .15s, background .15s, color .15s, border-color .15s;
       white-space: nowrap;
     }
 
     .hbtn:hover {
-      border-color: rgba(255, 255, 255, .26);
+      border-color: var(--bdh);
       color: #fff;
       background: var(--card2)
+    }
+
+    .hbtn:active {
+      transform: scale(.96)
     }
 
     .hbtn svg {
       flex-shrink: 0
     }
 
+    .sb-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.1px;
+      color: var(--mut);
+      text-transform: uppercase;
+      padding: 12px 16px 5px;
+      flex-shrink: 0;
+    }
+
     /* ── COMPARE PANEL ── */
     #cmp-panel {
-      background: rgba(255, 183, 77, .07);
-      border-bottom: 1px solid rgba(255, 183, 77, .2);
-      padding: 9px 13px;
+      background: rgba(255, 159, 10, .08);
+      border-bottom: 1px solid rgba(255, 159, 10, .22);
+      padding: 12px 16px;
       flex-shrink: 0;
       display: none;
     }
@@ -148,69 +249,74 @@
     .cmp-hd {
       display: flex;
       align-items: center;
-      gap: 7px;
-      margin-bottom: 7px
+      gap: 8px;
+      margin-bottom: 9px
     }
 
     .cmp-badge {
-      font-size: 7.5px;
-      letter-spacing: 2px;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: .8px;
       color: var(--warn);
-      background: rgba(255, 183, 77, .14);
-      border: 1px solid rgba(255, 183, 77, .28);
-      border-radius: 3px;
-      padding: 2px 6px
+      background: rgba(255, 159, 10, .16);
+      border: 1px solid rgba(255, 159, 10, .3);
+      border-radius: 999px;
+      padding: 3px 9px
     }
 
     .cmp-info {
-      font-size: 7.5px;
+      font-size: 10.5px;
       color: var(--mut2);
       flex: 1
     }
 
     .cmp-exit {
       margin-left: auto;
-      background: none;
-      border: 1px solid rgba(255, 183, 77, .35);
+      background: rgba(255, 159, 10, .12);
+      border: 1px solid rgba(255, 159, 10, .35);
       color: var(--warn);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 7.5px;
-      letter-spacing: 1.5px;
-      padding: 3px 8px;
-      border-radius: 4px;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .2px;
+      padding: 5px 10px;
+      border-radius: 999px;
       cursor: pointer;
       transition: all .15s
     }
 
     .cmp-exit:hover {
-      background: rgba(255, 183, 77, .14)
+      background: rgba(255, 159, 10, .2)
     }
 
     .cmp-files {
       display: flex;
       flex-direction: column;
-      gap: 3px
+      gap: 4px
     }
 
     .cmp-file {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 7px;
-      background: rgba(255, 255, 255, .025);
-      border-radius: 5px
+      gap: 7px;
+      padding: 6px 9px;
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid rgba(255, 255, 255, .05);
+      border-radius: 10px
     }
 
     .cmp-sw {
       width: 9px;
       height: 9px;
       border-radius: 50%;
-      flex-shrink: 0
+      flex-shrink: 0;
+      box-shadow: 0 0 6px currentColor;
     }
 
     .cmp-fn {
       flex: 1;
-      font-size: 8.5px;
+      font-size: 11px;
+      font-weight: 500;
       color: var(--text);
       white-space: nowrap;
       overflow: hidden;
@@ -218,9 +324,10 @@
     }
 
     .cmp-rc {
-      font-size: 7.5px;
+      font-size: 9.5px;
       color: var(--mut2);
-      flex-shrink: 0
+      flex-shrink: 0;
+      font-family: var(--font-mono);
     }
 
     .cmp-rm {
@@ -228,29 +335,30 @@
       border: none;
       color: var(--mut);
       cursor: pointer;
-      font-size: 10px;
-      padding: 1px 3px;
-      border-radius: 3px;
+      font-size: 12px;
+      padding: 2px 5px;
+      border-radius: 6px;
       transition: color .15s, background .15s;
       flex-shrink: 0
     }
 
     .cmp-rm:hover {
-      color: #ff5555;
-      background: rgba(255, 80, 80, .1)
+      color: var(--err);
+      background: rgba(255, 69, 58, .12)
     }
 
     .cmp-add {
-      margin-top: 5px;
+      margin-top: 7px;
       width: 100%;
-      padding: 5px;
+      padding: 8px;
       background: none;
-      border: 1px dashed rgba(255, 183, 77, .28);
-      border-radius: 5px;
-      color: rgba(255, 183, 77, .7);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 7.5px;
-      letter-spacing: 1px;
+      border: 1px dashed rgba(255, 159, 10, .32);
+      border-radius: 10px;
+      color: rgba(255, 178, 74, .85);
+      font-family: var(--font-ui);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .1px;
       cursor: pointer;
       transition: all .15s;
       position: relative
@@ -266,17 +374,19 @@
     }
 
     .cmp-add:hover {
-      background: rgba(255, 183, 77, .06);
-      border-color: rgba(255, 183, 77, .48)
+      background: rgba(255, 159, 10, .08);
+      border-color: rgba(255, 159, 10, .55)
     }
 
     /* ── LOADING ── */
     #loading-bar {
-      height: 2px;
-      background: var(--card);
+      height: 2.5px;
+      background: rgba(255, 255, 255, .06);
       flex-shrink: 0;
       overflow: hidden;
       display: none;
+      margin: 0 16px;
+      border-radius: 2px;
     }
 
     #loading-bar.show {
@@ -285,17 +395,17 @@
 
     #loading-fill {
       height: 100%;
-      background: linear-gradient(90deg, #44aaff, #7c4dff);
+      background: linear-gradient(90deg, var(--accent), #7c4dff);
       width: 0%;
       transition: width .25s ease;
-      border-radius: 1px
+      border-radius: 2px
     }
 
     #loading-msg {
-      font-size: 8px;
+      font-size: 10.5px;
       color: var(--mut2);
-      padding: 4px 13px;
-      letter-spacing: .5px;
+      padding: 6px 16px 2px;
+      letter-spacing: .1px;
       display: none;
       flex-shrink: 0
     }
@@ -306,13 +416,14 @@
 
     /* ── GLOBAL DZ ── */
     #global-dz {
-      margin: 7px 12px 5px;
-      padding: 7px 11px;
-      border: 1px dashed var(--bdh);
-      border-radius: 7px;
+      margin: 12px 16px 8px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(10, 132, 255, .16), rgba(124, 77, 255, .10));
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: var(--r-md);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 11px;
       cursor: pointer;
       position: relative;
       transition: all .2s;
@@ -321,8 +432,8 @@
 
     #global-dz:hover,
     #global-dz.over {
-      border-color: rgba(255, 255, 255, .28);
-      background: rgba(255, 255, 255, .018)
+      border-color: rgba(255, 255, 255, .3);
+      background: linear-gradient(135deg, rgba(10, 132, 255, .24), rgba(124, 77, 255, .16));
     }
 
     #global-dz input {
@@ -335,56 +446,67 @@
     }
 
     .gdz-icon {
-      font-size: 15px;
-      flex-shrink: 0
+      font-size: 18px;
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .gdz-txt .gdz-main {
-      font-size: 8.5px;
-      color: var(--text);
-      letter-spacing: .5px
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -.1px
     }
 
     .gdz-txt .gdz-sub {
-      font-size: 7px;
-      color: var(--mut2)
+      font-size: 10px;
+      color: var(--mut2);
+      margin-top: 1px;
     }
 
     /* ── PENDING ── */
     #pending-box {
-      margin: 0 12px 4px;
+      margin: 0 16px 8px;
       flex-shrink: 0
     }
 
     .pb-hd {
       display: flex;
       align-items: center;
-      gap: 5px;
-      font-size: 7.5px;
-      letter-spacing: 2px;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .8px;
       color: var(--warn);
-      padding: 3px 2px 4px
+      padding: 4px 2px 6px
     }
 
     .pb-list {
       display: flex;
       flex-direction: column;
-      gap: 3px
+      gap: 5px
     }
 
     .pb-row {
-      background: rgba(255, 183, 77, .05);
-      border: 1px solid rgba(255, 183, 77, .15);
-      border-radius: 6px;
-      padding: 5px 8px;
+      background: rgba(255, 159, 10, .07);
+      border: 1px solid rgba(255, 159, 10, .2);
+      border-radius: 10px;
+      padding: 8px 10px;
       display: flex;
       align-items: center;
-      gap: 5px
+      gap: 7px
     }
 
     .pb-name {
       flex: 1;
-      font-size: 8.5px;
+      font-size: 11.5px;
+      font-weight: 500;
       color: var(--text);
       white-space: nowrap;
       overflow: hidden;
@@ -392,7 +514,8 @@
     }
 
     .pb-pts {
-      font-size: 7.5px;
+      font-size: 9.5px;
+      font-family: var(--font-mono);
       color: var(--mut2);
       flex-shrink: 0
     }
@@ -400,63 +523,66 @@
     /* ── SCROLL ── */
     #sb-scroll {
       flex: 1;
-      overflow-y: scroll;
-      padding: 5px 12px 4px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 6px 16px 8px;
       display: flex;
       flex-direction: column;
-      gap: 6px
+      gap: 8px
     }
 
     #sb-scroll::-webkit-scrollbar {
-      width: 3px
+      width: 4px
     }
 
     #sb-scroll::-webkit-scrollbar-thumb {
-      background: var(--mut);
-      border-radius: 2px
+      background: rgba(255, 255, 255, .16);
+      border-radius: 3px
     }
 
     #empty {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
-      padding: 28px 16px;
+      gap: 14px;
+      padding: 40px 20px;
       text-align: center
     }
 
     .empty-ring {
-      width: 40px;
-      height: 40px;
+      width: 52px;
+      height: 52px;
       border-radius: 50%;
-      border: 1.5px dashed var(--mut);
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .1);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 17px;
-      color: var(--mut)
+      font-size: 21px;
+      color: var(--mut2)
     }
 
     #empty p {
-      font-size: 8.5px;
-      line-height: 2;
-      color: var(--mut2)
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--mut2);
+      max-width: 220px;
     }
 
     /* ── SPORT CARD ── */
     .sport-card {
-      overflow-y: scroll;
+      overflow: visible;
       background: var(--card);
       border: 1px solid var(--bd);
-      border-radius: 9px;
-      transition: border-color .2s, opacity .25s;
-      animation: fadeUp .25s ease both
+      border-radius: var(--r-md);
+      transition: border-color .2s, opacity .25s, background .2s;
+      animation: fadeUp .3s cubic-bezier(.22, 1, .36, 1) both
     }
 
     @keyframes fadeUp {
       from {
         opacity: 0;
-        transform: translateY(5px)
+        transform: translateY(8px) scale(.98)
       }
 
       to {
@@ -466,63 +592,66 @@
     }
 
     .sport-card:hover {
-      border-color: var(--bdh)
+      border-color: var(--bdh);
+      background: rgba(255, 255, 255, .075);
     }
 
     .sc-head {
       display: flex;
       align-items: center;
-      gap: 7px;
-      padding: 9px 11px
+      gap: 9px;
+      padding: 11px 12px
     }
 
     .sc-tog {
-      width: 29px;
-      height: 16px;
-      background: var(--mut);
-      border-radius: 8px;
+      width: 42px;
+      height: 25px;
+      background: rgba(120, 120, 128, .32);
+      border-radius: 13px;
       border: none;
       cursor: pointer;
       position: relative;
       flex-shrink: 0;
-      transition: background .22s
+      transition: background .25s;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
     }
 
     .sc-tog.on {
-      background: var(--c, #4af)
+      background: var(--c, var(--accent))
     }
 
     .sc-tog::after {
       content: '';
       position: absolute;
-      width: 10px;
-      height: 10px;
+      width: 21px;
+      height: 21px;
       background: #fff;
       border-radius: 50%;
-      top: 3px;
-      left: 3px;
-      transition: transform .22s;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, .4)
+      top: 2px;
+      left: 2px;
+      transition: transform .25s cubic-bezier(.34, 1.56, .64, 1);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, .35), 0 0 0 .5px rgba(0, 0, 0, .04)
     }
 
     .sc-tog.on::after {
-      transform: translateX(13px)
+      transform: translateX(17px)
     }
 
     .sc-dot-wrap {
       position: relative;
       flex-shrink: 0;
-      width: 13px;
-      height: 13px;
+      width: 18px;
+      height: 18px;
       cursor: pointer
     }
 
     .sc-dot {
-      width: 13px;
-      height: 13px;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
       display: block;
-      transition: opacity .15s
+      transition: opacity .15s, transform .15s;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .18), 0 2px 6px rgba(0, 0, 0, .3);
     }
 
     .sc-dot-wrap input[type=color] {
@@ -537,14 +666,15 @@
     }
 
     .sc-dot-wrap:hover .sc-dot {
-      opacity: .65
+      transform: scale(1.1)
     }
 
     .sc-name {
       flex: 1;
-      font-family: 'Antonio', sans-serif;
-      font-size: 13px;
-      letter-spacing: 1.5px;
+      font-family: var(--font-ui);
+      font-size: 14.5px;
+      font-weight: 700;
+      letter-spacing: -.1px;
       color: #fff;
       white-space: nowrap;
       overflow: hidden;
@@ -552,7 +682,8 @@
     }
 
     .sc-count {
-      font-size: 7.5px;
+      font-size: 10px;
+      font-family: var(--font-mono);
       color: var(--mut2);
       white-space: nowrap;
       flex-shrink: 0
@@ -562,28 +693,28 @@
       background: none;
       border: none;
       color: var(--mut);
-      font-size: 11px;
+      font-size: 13px;
       cursor: pointer;
-      padding: 2px 4px;
-      border-radius: 3px;
+      padding: 4px 6px;
+      border-radius: 7px;
       line-height: 1;
       transition: color .15s, background .15s;
       flex-shrink: 0
     }
 
     .sc-del:hover {
-      color: #ff5555;
-      background: rgba(255, 80, 80, .1)
+      color: var(--err);
+      background: rgba(255, 69, 58, .12)
     }
 
     .sc-body {
-      padding: 0 11px 8px
+      padding: 0 12px 12px
     }
 
     .dz {
-      border: 1px dashed var(--bdh);
-      border-radius: 5px;
-      padding: 7px;
+      border: 1.5px dashed rgba(255, 255, 255, .16);
+      border-radius: var(--r-sm);
+      padding: 11px;
       text-align: center;
       cursor: pointer;
       position: relative;
@@ -592,8 +723,8 @@
 
     .dz:hover,
     .dz.over {
-      border-color: var(--c, #4af);
-      background: rgba(68, 170, 255, .025)
+      border-color: var(--c, var(--accent));
+      background: rgba(255, 255, 255, .035)
     }
 
     .dz input {
@@ -606,44 +737,46 @@
     }
 
     .dz-icon {
-      font-size: 12px;
-      margin-bottom: 1px;
+      font-size: 14px;
+      margin-bottom: 2px;
       pointer-events: none
     }
 
     .dz-txt {
-      font-size: 8px;
+      font-size: 10.5px;
+      font-weight: 500;
       color: var(--mut2);
       pointer-events: none
     }
 
     .chip-list {
-      margin-top: 4px;
+      margin-top: 7px;
       display: flex;
       flex-direction: column;
-      gap: 2px
+      gap: 4px
     }
 
     .chip {
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 3px 6px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, .022)
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .035)
     }
 
     .chip-dot {
-      width: 5px;
-      height: 5px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       flex-shrink: 0
     }
 
     .chip-label {
       flex: 1;
-      font-size: 8px;
-      color: var(--mut2);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis
@@ -651,45 +784,48 @@
 
     .chip-label em {
       font-style: normal;
-      color: var(--mut);
-      font-size: 7.5px
+      color: var(--mut2);
+      font-size: 10px;
+      font-weight: 400;
     }
 
     .chip-warn {
       color: var(--warn);
-      font-size: 9px;
+      font-size: 11px;
       flex-shrink: 0;
       cursor: help;
     }
 
     .chip-pts {
-      font-size: 7px;
+      font-size: 9.5px;
+      font-family: var(--font-mono);
       color: var(--mut);
       flex-shrink: 0
     }
 
     .mini-sel {
-      background: var(--card2);
-      border: 1px solid var(--bdh);
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid var(--bd);
       color: var(--mut2);
-      border-radius: 3px;
-      padding: 2px 4px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 7.5px;
+      border-radius: 7px;
+      padding: 4px 6px;
+      font-family: var(--font-ui);
+      font-size: 10.5px;
+      font-weight: 500;
       cursor: pointer;
       outline: none;
       flex-shrink: 0;
       transition: border-color .15s;
-      max-width: 80px
+      max-width: 84px
     }
 
     .mini-sel:hover {
-      border-color: rgba(255, 255, 255, .24);
+      border-color: var(--bdh);
       color: var(--text)
     }
 
     .mini-sel option {
-      background: var(--sb)
+      background: #1c1c22
     }
 
     .mini-del {
@@ -697,93 +833,102 @@
       border: none;
       color: var(--mut);
       cursor: pointer;
-      padding: 1px 3px;
-      border-radius: 3px;
-      font-size: 9px;
+      padding: 3px 5px;
+      border-radius: 6px;
+      font-size: 11px;
       line-height: 1;
       flex-shrink: 0;
       transition: color .15s, background .15s
     }
 
     .mini-del:hover {
-      color: #ff5555;
-      background: rgba(255, 80, 80, .1)
+      color: var(--err);
+      background: rgba(255, 69, 58, .12)
     }
 
     /* ── BOTTOM TOOLBAR ── */
     #tb {
       border-top: 1px solid var(--bd);
-      padding: 7px 12px;
+      padding: 10px 14px;
       display: flex;
-      gap: 5px;
+      gap: 6px;
       flex-shrink: 0
     }
 
     .tb-btn {
       flex: 1;
-      padding: 7px 6px;
-      background: none;
-      border: 1px solid var(--bdh);
-      border-radius: 6px;
+      padding: 9px 6px;
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid var(--bd);
+      border-radius: 11px;
       color: var(--mut2);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 7.5px;
-      letter-spacing: 1px;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .1px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      gap: 5px;
       transition: all .18s;
     }
 
     .tb-btn:hover {
-      border-color: rgba(255, 255, 255, .25);
+      border-color: var(--bdh);
       color: #fff;
-      background: rgba(255, 255, 255, .02)
+      background: rgba(255, 255, 255, .07)
+    }
+
+    .tb-btn:active {
+      transform: scale(.96)
     }
 
     .tb-btn.active {
-      border-color: rgba(255, 255, 255, .35);
+      border-color: rgba(10, 132, 255, .5);
       color: #fff;
-      background: rgba(255, 255, 255, .06)
+      background: rgba(10, 132, 255, .22)
     }
 
     #add-btn {
-      margin: 5px 12px 7px;
-      padding: 8px;
-      background: none;
-      border: 1px dashed var(--bdh);
-      border-radius: 7px;
-      color: var(--mut2);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 8.5px;
-      letter-spacing: 2px;
+      margin: 8px 14px 10px;
+      padding: 11px;
+      background: rgba(10, 132, 255, .14);
+      border: 1px solid rgba(10, 132, 255, .3);
+      border-radius: var(--r-sm);
+      color: var(--accent2);
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: -.1px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      transition: all .2s;
+      transition: all .18s;
       flex-shrink: 0
     }
 
     #add-btn:hover {
-      border-color: rgba(255, 255, 255, .26);
-      color: #fff;
-      background: rgba(255, 255, 255, .02)
+      border-color: rgba(10, 132, 255, .5);
+      background: rgba(10, 132, 255, .22);
+    }
+
+    #add-btn:active {
+      transform: scale(.98)
     }
 
     #add-btn .plus {
-      font-size: 14px;
-      font-weight: 300;
+      font-size: 17px;
+      font-weight: 400;
       line-height: 1
     }
 
     /* ── STATS FOOTER ── */
     #sb-foot {
       border-top: 1px solid var(--bd);
-      padding: 9px 15px;
+      padding: 12px 18px calc(12px + var(--safe-b, 0px));
       display: flex;
       gap: 0;
       flex-shrink: 0
@@ -798,20 +943,22 @@
 
     .stat+.stat {
       border-left: 1px solid var(--bd);
-      padding-left: 10px
+      padding-left: 12px
     }
 
     .stat-v {
-      font-family: 'Antonio', sans-serif;
-      font-size: 17px;
-      font-weight: 700;
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
       color: #fff;
-      line-height: 1
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
     }
 
     .stat-l {
-      font-size: 7px;
-      letter-spacing: 2px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1px;
       color: var(--mut)
     }
 
@@ -819,26 +966,33 @@
     #map-wrap {
       flex: 1;
       position: relative;
-      transition: flex .3s
+      transition: flex .3s;
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, .45);
+      border: 1px solid var(--glass-bd);
     }
 
     #map {
       width: 100%;
-      height: 100%
+      height: 100%;
+      background: #05070a;
     }
 
     #hint {
       position: absolute;
-      bottom: 22px;
+      bottom: max(22px, calc(var(--safe-b) + 14px));
       right: 16px;
       z-index: 900;
-      background: rgba(12, 15, 21, .88);
-      border: 1px solid var(--bdh);
-      border-radius: 7px;
-      padding: 7px 12px;
-      font-size: 8.5px;
+      background: rgba(28, 28, 32, .6);
+      border: 1px solid var(--glass-bd);
+      border-radius: 999px;
+      padding: 9px 15px;
+      font-size: 11.5px;
+      font-weight: 500;
       color: var(--mut2);
-      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      backdrop-filter: blur(20px) saturate(180%);
       pointer-events: none;
       transition: opacity .5s
     }
@@ -846,21 +1000,24 @@
     /* ── FOCUS MODE ── */
     #focus-exit {
       position: absolute;
-      top: 16px;
-      right: 16px;
+      top: max(16px, var(--safe-t));
+      right: calc(16px + var(--safe-r));
       z-index: 1000;
-      background: rgba(12, 15, 21, .88);
-      border: 1px solid var(--bdh);
-      border-radius: 7px;
-      padding: 6px 12px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 9px;
-      letter-spacing: 1.5px;
+      background: rgba(28, 28, 32, .6);
+      border: 1px solid var(--glass-bd);
+      border-radius: 999px;
+      padding: 9px 16px;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .1px;
       color: var(--mut2);
       cursor: pointer;
-      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      backdrop-filter: blur(20px) saturate(180%);
       display: none;
-      transition: color .15s;
+      transition: color .15s, background .15s;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
     }
 
     #app.focus #focus-exit {
@@ -868,7 +1025,51 @@
     }
 
     #focus-exit:hover {
-      color: #fff
+      color: #fff;
+      background: rgba(40, 40, 46, .7);
+    }
+
+    /* ── MOBILE DRAWER TOGGLE (map overlay button, shown <900px) ── */
+    #btn-drawer {
+      position: absolute;
+      top: max(16px, var(--safe-t));
+      left: calc(16px + var(--safe-l));
+      z-index: 1000;
+      width: 44px;
+      height: 44px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(28, 28, 32, .6);
+      border: 1px solid var(--glass-bd);
+      border-radius: 14px;
+      color: #fff;
+      cursor: pointer;
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+      transition: background .15s, transform .15s;
+    }
+
+    #btn-drawer:active {
+      transform: scale(.94)
+    }
+
+    #drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .45);
+      z-index: 190;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s;
+      -webkit-backdrop-filter: blur(2px);
+      backdrop-filter: blur(2px);
+    }
+
+    #app.drawer-open #drawer-backdrop {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     /* ── TOASTS ── */
@@ -886,40 +1087,43 @@
     }
 
     .toast {
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 9px;
-      letter-spacing: .5px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .1px;
       opacity: 0;
-      transform: translateY(8px);
-      transition: opacity .25s, transform .25s;
-      backdrop-filter: blur(8px);
+      transform: translateY(10px) scale(.96);
+      transition: opacity .3s cubic-bezier(.22, 1, .36, 1), transform .3s cubic-bezier(.22, 1, .36, 1);
+      -webkit-backdrop-filter: blur(22px) saturate(180%);
+      backdrop-filter: blur(22px) saturate(180%);
       border: 1px solid;
-      white-space: nowrap
+      white-space: nowrap;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
     }
 
     .toast.ok {
-      background: rgba(102, 187, 106, .15);
-      border-color: rgba(102, 187, 106, .3);
+      background: rgba(48, 209, 88, .16);
+      border-color: rgba(48, 209, 88, .32);
       color: var(--ok)
     }
 
     .toast.err {
-      background: rgba(239, 83, 80, .15);
-      border-color: rgba(239, 83, 80, .3);
+      background: rgba(255, 69, 58, .16);
+      border-color: rgba(255, 69, 58, .32);
       color: var(--err)
     }
 
     .toast.warn {
-      background: rgba(255, 183, 77, .15);
-      border-color: rgba(255, 183, 77, .3);
+      background: rgba(255, 159, 10, .16);
+      border-color: rgba(255, 159, 10, .32);
       color: var(--warn)
     }
 
     .toast.info {
-      background: rgba(68, 170, 255, .12);
-      border-color: rgba(68, 170, 255, .25);
-      color: #44aaff
+      background: rgba(10, 132, 255, .16);
+      border-color: rgba(10, 132, 255, .32);
+      color: var(--accent2)
     }
 
     .toast.in {
@@ -931,12 +1135,14 @@
     #overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, .7);
+      background: rgba(0, 0, 0, .55);
       z-index: 500;
       display: none;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(5px)
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      padding: 20px;
     }
 
     #overlay.show {
@@ -944,18 +1150,22 @@
     }
 
     #modal {
-      background: var(--sb);
-      border: 1px solid var(--bdh);
-      border-radius: 12px;
-      padding: 24px 22px 20px;
-      width: 330px;
-      animation: popIn .2s cubic-bezier(.34, 1.56, .64, 1) both
+      background: rgba(32, 32, 38, .78);
+      -webkit-backdrop-filter: blur(34px) saturate(190%);
+      backdrop-filter: blur(34px) saturate(190%);
+      border: 1px solid var(--glass-bd);
+      border-radius: 24px;
+      padding: 26px 24px 22px;
+      width: 340px;
+      max-width: 100%;
+      box-shadow: 0 30px 70px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .1);
+      animation: popIn .28s cubic-bezier(.34, 1.15, .64, 1) both
     }
 
     @keyframes popIn {
       from {
         opacity: 0;
-        transform: scale(.93) translateY(-8px)
+        transform: scale(.92) translateY(6px)
       }
 
       to {
@@ -965,60 +1175,66 @@
     }
 
     .modal-title {
-      font-family: 'Antonio', sans-serif;
-      font-size: 20px;
-      letter-spacing: 3px;
+      font-family: var(--font-ui);
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -.2px;
       color: #fff;
-      margin-bottom: 16px
+      margin-bottom: 18px
     }
 
     .fg {
-      margin-bottom: 13px
+      margin-bottom: 15px
     }
 
     .fg label {
       display: block;
-      font-size: 7.5px;
-      letter-spacing: 2.5px;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
       color: var(--mut2);
-      margin-bottom: 5px
+      margin-bottom: 7px
     }
 
     .fg input[type=text] {
       width: 100%;
-      background: var(--card);
-      border: 1px solid var(--bdh);
-      border-radius: 5px;
-      padding: 8px 10px;
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      padding: 11px 13px;
       color: #fff;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 12px;
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 500;
       outline: none;
-      transition: border-color .2s
+      transition: border-color .2s, background .2s
     }
 
     .fg input[type=text]:focus {
-      border-color: rgba(255, 255, 255, .32)
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, .1)
     }
 
     .fg input[type=text].err {
-      border-color: #ef5350
+      border-color: var(--err)
     }
 
     .color-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 9px;
       align-items: center
     }
 
     .cp {
-      width: 25px;
-      height: 25px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       border: 2px solid transparent;
       cursor: pointer;
-      transition: transform .15s, border-color .15s
+      transition: transform .15s, border-color .15s, box-shadow .15s;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
     }
 
     .cp:hover {
@@ -1027,12 +1243,13 @@
 
     .cp.sel {
       border-color: #fff;
-      transform: scale(1.12)
+      transform: scale(1.14);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, .18), 0 2px 8px rgba(0, 0, 0, .3);
     }
 
     .cp-custom {
-      width: 25px;
-      height: 25px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       border: 2px dashed var(--bdh);
       cursor: pointer;
@@ -1041,7 +1258,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--mut2);
       transition: border-color .15s
     }
@@ -1056,61 +1273,70 @@
     }
 
     .cp-custom:hover {
-      border-color: rgba(255, 255, 255, .28)
+      border-color: rgba(255, 255, 255, .35)
     }
 
     .modal-btns {
       display: flex;
-      gap: 7px;
-      margin-top: 18px
+      gap: 8px;
+      margin-top: 20px
     }
 
     .btn-ok {
       flex: 1;
-      padding: 9px;
-      background: #fff;
-      color: #07090d;
+      padding: 12px;
+      background: var(--accent);
+      color: #fff;
       border: none;
-      border-radius: 5px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 9.5px;
-      font-weight: 600;
-      letter-spacing: 1.5px;
+      border-radius: 13px;
+      font-family: var(--font-ui);
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: -.1px;
       cursor: pointer;
-      transition: opacity .2s
+      transition: filter .2s, transform .15s;
+      box-shadow: 0 6px 16px rgba(10, 132, 255, .35);
     }
 
     .btn-ok:hover {
-      opacity: .82
+      filter: brightness(1.1)
+    }
+
+    .btn-ok:active {
+      transform: scale(.97)
     }
 
     .btn-cancel {
-      padding: 9px 14px;
-      background: none;
-      border: 1px solid var(--bdh);
+      padding: 12px 18px;
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid var(--bd);
       color: var(--mut2);
-      border-radius: 5px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 9.5px;
+      border-radius: 13px;
+      font-family: var(--font-ui);
+      font-size: 13.5px;
+      font-weight: 600;
       cursor: pointer;
-      transition: color .2s, border-color .2s
+      transition: color .2s, border-color .2s, background .2s
     }
 
     .btn-cancel:hover {
       color: #fff;
-      border-color: rgba(255, 255, 255, .26)
+      border-color: var(--bdh);
+      background: rgba(255, 255, 255, .1)
     }
 
     /* ── CAPTURE MODAL ── */
     #cap-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, .75);
+      background: rgba(0, 0, 0, .6);
       z-index: 600;
       display: none;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(6px)
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      padding: 20px;
     }
 
     #cap-overlay.show {
@@ -1118,21 +1344,25 @@
     }
 
     #cap-box {
-      background: var(--sb);
-      border: 1px solid var(--bdh);
-      border-radius: 13px;
-      padding: 22px;
+      background: rgba(32, 32, 38, .78);
+      -webkit-backdrop-filter: blur(34px) saturate(190%);
+      backdrop-filter: blur(34px) saturate(190%);
+      border: 1px solid var(--glass-bd);
+      border-radius: 24px;
+      padding: 24px;
       width: 560px;
-      max-width: 95vw;
-      animation: popIn .2s ease both
+      max-width: 100%;
+      box-shadow: 0 30px 70px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .1);
+      animation: popIn .25s ease both
     }
 
     .cap-title {
-      font-family: 'Antonio', sans-serif;
-      font-size: 19px;
-      letter-spacing: 3px;
+      font-family: var(--font-ui);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -.2px;
       color: #fff;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
       gap: 10px
@@ -1140,25 +1370,29 @@
 
     .cap-title button {
       margin-left: auto;
-      background: none;
+      background: rgba(255, 255, 255, .08);
       border: none;
+      border-radius: 8px;
+      width: 28px;
+      height: 28px;
       color: var(--mut2);
       cursor: pointer;
-      font-size: 16px;
-      transition: color .15s
+      font-size: 15px;
+      transition: color .15s, background .15s
     }
 
     .cap-title button:hover {
-      color: #fff
+      color: #fff;
+      background: rgba(255, 255, 255, .14);
     }
 
     #cap-canvas-wrap {
-      border-radius: 7px;
+      border-radius: 16px;
       overflow: hidden;
       border: 1px solid var(--bd);
-      margin-bottom: 14px;
+      margin-bottom: 16px;
       min-height: 180px;
-      background: var(--bg);
+      background: #000;
       display: flex;
       align-items: center;
       justify-content: center
@@ -1166,7 +1400,7 @@
 
     #cap-canvas-wrap canvas {
       max-width: 100%;
-      border-radius: 6px;
+      border-radius: 12px;
       display: block
     }
 
@@ -1184,7 +1418,7 @@
 
     .cap-controls {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       flex-wrap: wrap;
       align-items: flex-end
     }
@@ -1192,33 +1426,36 @@
     .cap-ctrl {
       display: flex;
       flex-direction: column;
-      gap: 4px
+      gap: 5px
     }
 
     .cap-ctrl label {
-      font-size: 7.5px;
-      letter-spacing: 1.5px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
       color: var(--mut2)
     }
 
     .cap-ctrl input[type=color] {
-      width: 40px;
-      height: 28px;
-      border-radius: 4px;
-      border: 1px solid var(--bdh);
-      background: var(--card);
+      width: 44px;
+      height: 32px;
+      border-radius: 9px;
+      border: 1px solid var(--bd);
+      background: rgba(255, 255, 255, .06);
       cursor: pointer;
-      padding: 2px
+      padding: 3px
     }
 
     .cap-ctrl select {
-      background: var(--card);
-      border: 1px solid var(--bdh);
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid var(--bd);
       color: var(--text);
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 8.5px;
+      border-radius: 9px;
+      padding: 7px 10px;
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      font-weight: 500;
       cursor: pointer;
       outline: none
     }
@@ -1226,50 +1463,147 @@
     .cap-download {
       margin-left: auto;
       align-self: flex-end;
-      padding: 8px 18px;
-      background: #fff;
-      color: #07090d;
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #fff;
       border: none;
-      border-radius: 5px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 1.5px;
+      border-radius: 12px;
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      font-weight: 700;
       cursor: pointer;
-      transition: opacity .2s
+      transition: filter .2s;
+      box-shadow: 0 6px 16px rgba(10, 132, 255, .35);
     }
 
     .cap-download:hover {
-      opacity: .82
+      filter: brightness(1.1)
     }
 
     /* ── LEAFLET OVERRIDES ── */
     .leaflet-control-attribution {
-      background: rgba(7, 9, 13, .75) !important;
-      color: #333 !important;
-      font-size: 8px !important
+      background: rgba(20, 20, 24, .7) !important;
+      color: #888 !important;
+      font-size: 9px !important;
+      border-radius: 8px !important;
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
     }
 
     .leaflet-control-attribution a {
-      color: #444 !important
+      color: #aaa !important
+    }
+
+    .leaflet-bar {
+      border: none !important;
+      border-radius: 12px !important;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .35) !important;
     }
 
     .leaflet-bar a {
-      background: var(--card) !important;
+      background: rgba(32, 32, 38, .75) !important;
       color: var(--text) !important;
-      border-color: var(--bdh) !important
+      border-color: rgba(255, 255, 255, .08) !important;
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      width: 34px !important;
+      height: 34px !important;
+      line-height: 34px !important;
     }
 
     .leaflet-bar a:hover {
-      background: var(--card2) !important
+      background: rgba(48, 48, 56, .85) !important
     }
 
-    @media (max-height: 1080px) {
-
-      #add-btn,
-      #tb,
+    @media (max-height: 700px) {
       #sb-foot {
-        translate: 0 -10vh;
+        display: none
+      }
+    }
+
+    /* ═══ MOBILE / NARROW VIEWPORTS ═══
+       Sidebar becomes a slide-in drawer over a full-bleed map,
+       opened via the floating glass button on the map. */
+    @media (max-width: 900px) {
+      #app {
+        padding: 0;
+        gap: 0;
+      }
+
+      #btn-drawer {
+        display: flex;
+      }
+
+      #map-wrap {
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+      }
+
+      #sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(86vw, 380px);
+        max-width: none;
+        border-radius: 0 24px 24px 0;
+        transform: translateX(-100%);
+        padding-top: var(--safe-t);
+        box-shadow: 0 0 60px rgba(0, 0, 0, .5);
+      }
+
+      #app.drawer-open #sidebar {
+        transform: translateX(0);
+      }
+
+      #app.focus #sidebar {
+        transform: translateX(-100%);
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+      }
+
+      #focus-exit,
+      #btn-focus {
+        display: none !important;
+      }
+
+      #hint {
+        left: 16px;
+        right: 16px;
+        bottom: max(18px, calc(var(--safe-b) + 12px));
+        text-align: center;
+        justify-content: center;
+      }
+
+      .cap-controls {
+        justify-content: flex-start;
+      }
+
+      .cap-download {
+        margin-left: 0;
+        width: 100%;
+        order: 10;
+      }
+    }
+
+    @media (max-width: 420px) {
+
+      #modal,
+      #cap-box {
+        width: 100%;
+      }
+
+      .head-row {
+        flex-wrap: wrap;
+      }
+
+      .head-row a,
+      .head-row .hbtn {
+        min-width: calc(50% - 3px);
       }
     }
   </style>
@@ -1310,17 +1644,38 @@ self.onmessage = function(e) {
 };
 </script>
 
+  <button id="btn-drawer" aria-label="Open menu">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round">
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+    </svg>
+  </button>
+  <div id="drawer-backdrop"></div>
+
   <div id="app">
     <div id="sidebar">
       <div id="sb-head">
-        <div class="logo">TRAX</div>
-        <div class="logo-sub">GPX HEATMAP VISUALIZER</div>
+        <div class="logo-row">
+          <div class="logo-mark">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 17 L9 9 L13 13 L21 4" />
+              <circle cx="21" cy="4" r="1.6" fill="#fff" stroke="none" />
+            </svg>
+          </div>
+          <div>
+            <div class="logo">TRAX</div>
+            <div class="logo-sub">GPX Heatmap Visualizer</div>
+          </div>
+        </div>
         <div class="head-row">
-          <a href="howto" target="_blank"><button class="hbtn">TUTORIAL</button></a>
-          <a href="fit" target="_blank"><button class="hbtn">CONVERT</button></a>
+          <a href="howto" target="_blank"><button class="hbtn">Tutorial</button></a>
+          <a href="fit" target="_blank"><button class="hbtn">Convert</button></a>
 
-          <button class="hbtn" id="btn-export" title="Export visible routes as .trax">EXPORT</button>
-          <button class="hbtn" id="btn-compare" title="Import .trax for comparison">COMPARE</button>
+          <button class="hbtn" id="btn-export" title="Export visible routes as .trax">Export</button>
+          <button class="hbtn" id="btn-compare" title="Import .trax for comparison">Compare</button>
           <input type="file" id="compare-input" accept=".trax" multiple style="display:none">
         </div>
       </div>
@@ -1340,46 +1695,47 @@ self.onmessage = function(e) {
       </div>
       <div id="loading-msg"></div>
 
+      <div class="sb-eyebrow">Import</div>
       <div id="global-dz">
-        <input type="file" id="global-input" accept=".gpx,.fit,.gz" multiple>
         <span class="gdz-icon">⚡</span>
+        <input type="file" id="global-input" accept=".gpx,.fit,.gz" multiple>
         <div class="gdz-txt">
-          <div class="gdz-main">AUTO UPLOAD</div>
+          <div class="gdz-main">Auto upload</div>
           <div class="gdz-sub">.gpx · .fit · .fit.gz — sport detected automatically</div>
         </div>
       </div>
-      <p style="font-size: 12px; padding-left: 18px; background-color: var(--mut); border-radius: 4px; margin-left: 12px; margin-right: 12.5%;">Import routes above.</p>
 
       <div id="pending-box"></div>
+      <div class="sb-eyebrow" style="padding-top:4px">Routes</div>
       <div id="sb-scroll">
         <div id="empty">
           <div class="empty-ring">◎</div>
-          <p>No routes yet.<br>Upload GPX/FIT files via ⚡<br>or create a sport.</p>
+          <p>No routes yet. Upload a GPX or FIT file above, or create a sport to get started.</p>
         </div>
       </div>
-      <button id="add-btn"><span class="plus">+</span><span>NEW SPORT</span></button>
+      <button id="add-btn"><span class="plus">+</span><span>New sport</span></button>
       <div id="tb">
         <button class="tb-btn" id="btn-elev" title="Color routes by elevation">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 17 9 11 13 15 21 7" />
           </svg>
-          ELEVATION
+          Elevation
         </button>
         <button class="tb-btn" id="btn-capture" title="Screenshot">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
             <circle cx="12" cy="13" r="4" />
           </svg>
-          CAPTURE
+          Capture
         </button>
         <button class="tb-btn" id="btn-focus" title="Focus mode">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
             <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
-          FOCUS
+          Focus
         </button>
       </div>
       <div id="sb-foot">
@@ -1395,21 +1751,21 @@ self.onmessage = function(e) {
     </div>
   </div>
 
-  <button id="focus-exit">⊕ SHOW PANEL</button>
+  <button id="focus-exit">⊕ Show panel</button>
   <div id="toast-wrap"></div>
 
   <!-- ADD SPORT MODAL -->
   <div id="overlay">
     <div id="modal">
-      <div class="modal-title">NEW SPORT</div>
-      <div class="fg"><label>NAME</label><input type="text" id="inp-name" placeholder="e.g. Running, Cycling, Hiking …"
+      <div class="modal-title">New sport</div>
+      <div class="fg"><label>Name</label><input type="text" id="inp-name" placeholder="e.g. Running, Cycling, Hiking …"
           maxlength="28" autocomplete="off"></div>
-      <div class="fg"><label>HEATMAP COLOR</label>
+      <div class="fg"><label>Heatmap color</label>
         <div class="color-grid" id="color-grid"></div>
       </div>
       <div class="modal-btns">
-        <button class="btn-cancel" id="btn-cancel">CANCEL</button>
-        <button class="btn-ok" id="btn-ok">CREATE</button>
+        <button class="btn-cancel" id="btn-cancel">Cancel</button>
+        <button class="btn-ok" id="btn-ok">Create</button>
       </div>
     </div>
   </div>
@@ -1417,20 +1773,20 @@ self.onmessage = function(e) {
   <!-- CAPTURE MODAL -->
   <div id="cap-overlay">
     <div id="cap-box">
-      <div class="cap-title">CAPTURE MAP <button id="cap-close">✕</button></div>
+      <div class="cap-title">Capture map <button id="cap-close">✕</button></div>
       <div id="cap-canvas-wrap">
         <div class="cap-spinner">◎</div>
       </div>
       <div class="cap-controls">
-        <div class="cap-ctrl"><label>BACKGROUND</label><input type="color" id="cap-bg" value="#07090d"></div>
-        <div class="cap-ctrl"><label>SCALE</label>
+        <div class="cap-ctrl"><label>Background</label><input type="color" id="cap-bg" value="#07090d"></div>
+        <div class="cap-ctrl"><label>Scale</label>
           <select id="cap-scale">
             <option value="1">1× Standard</option>
             <option value="2" selected>2× High DPI</option>
             <option value="3">3× Print</option>
           </select>
         </div>
-        <div class="cap-ctrl"><label>GLOW</label>
+        <div class="cap-ctrl"><label>Glow</label>
           <select id="cap-glow">
             <option value="0">None</option>
             <option value="1" selected>Soft</option>
@@ -2716,6 +3072,22 @@ ${pts}
     document.getElementById('compare-input').addEventListener('change', e => { [...e.target.files].forEach(importTrax); e.target.value = ''; });
     document.getElementById('cmp-add-input').addEventListener('change', e => { [...e.target.files].forEach(importTrax); e.target.value = ''; });
     document.getElementById('cmp-exit').addEventListener('click', exitCompare);
+
+    /* ═══════════════════════════════════════════════════════════
+       MOBILE DRAWER
+       On narrow viewports the sidebar behaves like a native nav
+       drawer: a glass button over the map opens it, a backdrop or
+       swipe-equivalent tap closes it again.
+    ═══════════════════════════════════════════════════════════ */
+    function openDrawer() { document.getElementById('app').classList.add('drawer-open'); }
+    function closeDrawer() { document.getElementById('app').classList.remove('drawer-open'); }
+    document.getElementById('btn-drawer').addEventListener('click', openDrawer);
+    document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+    // Uploading a file, or focusing the map, feels more native if the
+    // drawer gets out of the way automatically afterwards.
+    document.getElementById('btn-focus').addEventListener('click', closeDrawer);
+    document.getElementById('global-input').addEventListener('change', closeDrawer);
 
     /* ═══════════════════════════════════════════════════════════
        INIT
